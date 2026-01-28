@@ -10,6 +10,7 @@ import { usePlayer } from "../hooks/usePlayer";
 import PlayerSetup from "../components/playerSetup.jsx";
 import PlayerInfoForm from "../components/PlayerInfoForm";
 import Modal from "../components/Modal";
+import Drawer from "../components/Drawer";
 import { rollD20, abilityModifier, rollDiceExpression, formatDiceResult } from "../lib/dice";
 
 const ABILITIES = [
@@ -64,6 +65,10 @@ export default function PlayerPage() {
   const { player, loading } = usePlayer(playerId);
 
   const [showInfo, setShowInfo] = useState(false);
+  const [showRoller, setShowRoller] = useState(false);
+  const [activeTab, setActiveTab] = useState("atributos");
+  const [showRoller, setShowRoller] = useState(false);
+  const [activeTab, setActiveTab] = useState("atributos");
 
   const [isSecretRoll, setIsSecretRoll] = useState(false);
   const [isAdvantage, setIsAdvantage] = useState(false);
@@ -237,32 +242,183 @@ export default function PlayerPage() {
   const level = player.level || 1;
   const pb = proficiencyBonus(level);
 
+  const tabs = [
+    { key: "atributos", label: "Atributos" },
+    { key: "pericias", label: "Perícias" },
+    { key: "ataques", label: "Ataques" },
+    { key: "inventario", label: "Inventário" },
+    { key: "notas", label: "Notas" },
+    { key: "rolagens", label: "Rolagens" },
+  ];
+
+  const skillComputed = useMemo(() => {
+    const L = Number(level) || 1;
+    const pbNow = proficiencyBonus(L);
+    return SKILLS.map((s) => {
+      const score = player.abilities?.[s.ability] ?? 10;
+      const mod = abilityModifier(score);
+      const entry = player.skills?.[s.key] || { proficient: false, bonus: 0 };
+      const prof = entry.proficient ? pbNow : 0;
+      const extra = Number(entry.bonus || 0);
+      return {
+        ...s,
+        proficient: !!entry.proficient,
+        totalBonus: mod + prof + extra,
+        mod,
+        prof,
+        extra,
+      };
+    });
+  }, [player.abilities, player.skills, level]);
+
   return (
     <div className="player-page">
-      <div className="player-layout">
-        {/* LEFT: Rolador */}
-        <div className="roller-pane">
-          <div className="ui-card player-controls-card">
-            <div className="player-topbar">
+      <div className="sheet-layout">
+        <header className="sheet-header ui-card">
+          <div className="sheet-header-top">
+            <div>
               <div className="player-name">{displayName}</div>
+              <div className="player-subline">
+                <span className="ui-muted">PB:</span> <strong>+{pb}</strong>
+              </div>
+            </div>
+            <div className="sheet-header-actions">
               <div className="player-badge">
                 <ShieldLevel level={level} />
               </div>
+              <button className="ui-btn ui-btn-ghost" onClick={() => setShowInfo(true)}>
+                ⚙️
+              </button>
             </div>
+          </div>
 
-            <div className="player-subline">
-              <span className="ui-muted">PB:</span> <strong>+{pb}</strong>
+          <nav className="sheet-tabs" aria-label="Seções da ficha">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className={"sheet-tab" + (activeTab === t.key ? " active" : "")}
+                onClick={() => setActiveTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </header>
+
+        <main className="sheet-content">
+          {activeTab === "atributos" && (
+            <div className="ui-card">
+              <h3 style={{ marginTop: 0 }}>Atributos</h3>
+              <div className="grid-cards">
+                {ABILITIES.map((a) => {
+                  const score = player.abilities?.[a.key] ?? 10;
+                  const mod = abilityModifier(score);
+                  return (
+                    <div key={a.key} className="stat-card">
+                      <div className="stat-top">
+                        <div className="stat-label">{a.short}</div>
+                        <div className="stat-score">{score}</div>
+                      </div>
+                      <div className="stat-mod">{mod >= 0 ? "+" : ""}{mod}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="ui-muted" style={{ marginTop: 10, fontSize: 13 }}>
+                Dica: toque no 🎲 para abrir o rolador.
+              </div>
             </div>
+          )}
 
-            <div className="toggle-row">
+          {activeTab === "pericias" && (
+            <div className="ui-card">
+              <h3 style={{ marginTop: 0 }}>Perícias</h3>
+              <div className="list-cards">
+                {skillComputed.map((s) => (
+                  <div key={s.key} className="row-card">
+                    <div>
+                      <div className="row-title">{s.label}</div>
+                      <div className="ui-muted" style={{ fontSize: 12 }}>
+                        {s.proficient ? `Treinada • +PB(${pb})` : "Não treinada"}
+                        {s.extra ? ` • bônus ${s.extra >= 0 ? "+" : ""}${s.extra}` : ""}
+                      </div>
+                    </div>
+                    <div className="row-pill">{s.totalBonus >= 0 ? "+" : ""}{s.totalBonus}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "ataques" && (
+            <div className="ui-card">
+              <h3 style={{ marginTop: 0 }}>Ataques</h3>
+              {attacksAll.length === 0 ? (
+                <div className="ui-muted">Nenhum ataque cadastrado. Abra ⚙️ para adicionar.</div>
+              ) : (
+                <div className="list-cards">
+                  {attacksAll.map((atk) => (
+                    <div key={atk.id} className="row-card">
+                      <div>
+                        <div className="row-title">{atk.name || "Sem nome"}</div>
+                        <div className="ui-muted" style={{ fontSize: 12 }}>
+                          {atk.kind === "spell" ? "Magia" : "Arma"} • dano: {atk.dice || "—"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="mini-btn"
+                        onClick={() => {
+                          setRollType("Ataque");
+                          setSelectedAttackId(atk.id);
+                          setShowRoller(true);
+                        }}
+                      >
+                        Rolar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "inventario" && (
+            <div className="ui-card">
+              <h3 style={{ marginTop: 0 }}>Inventário</h3>
+              <div className="ui-muted">A gente monta essa aba agora que a ficha virou completa ✨</div>
+            </div>
+          )}
+
+          {activeTab === "notas" && (
+            <div className="ui-card">
+              <h3 style={{ marginTop: 0 }}>Notas</h3>
+              <div className="ui-muted">Em breve: condições, traços e anotações rápidas.</div>
+            </div>
+          )}
+
+          {activeTab === "rolagens" && (
+            <div className="ui-card livefeed-card">
+              <LiveFeed viewerId={playerId} isMaster={false} title="Rolagens (mesa)" />
+            </div>
+          )}
+        </main>
+
+        <button className="fab-roll" type="button" onClick={() => setShowRoller(true)} aria-label="Abrir rolador">
+          🎲
+        </button>
+
+        <Drawer open={showRoller} title="Rolador" onClose={() => setShowRoller(false)}>
+          <div className="ui-card" style={{ boxShadow: "none" }}>
+            <div className="toggle-row" style={{ marginBottom: 10 }}>
               <button
                 type="button"
                 className={"toggle-btn" + (isSecretRoll ? " active" : "")}
                 onClick={() => setIsSecretRoll((v) => !v)}
               >
-                Rolagem Secreta
+                Secreta
               </button>
-
               <button
                 type="button"
                 className={"toggle-btn" + (isAdvantage ? " active" : "")}
@@ -273,7 +429,6 @@ export default function PlayerPage() {
               >
                 Vantagem
               </button>
-
               <button
                 type="button"
                 className={"toggle-btn" + (isDisadvantage ? " active" : "")}
@@ -287,7 +442,7 @@ export default function PlayerPage() {
             </div>
 
             <div className="field">
-              <label className="field-label">Tipo de rolagem</label>
+              <label className="field-label">Tipo</label>
               <select className="ui-select" value={rollType} onChange={(e) => setRollType(e.target.value)}>
                 <option value="Atributo">Atributo</option>
                 <option value="Perícia">Perícia</option>
@@ -300,11 +455,7 @@ export default function PlayerPage() {
             {rollType === "Atributo" && (
               <div className="field">
                 <label className="field-label">Atributo</label>
-                <select
-                  className="ui-select"
-                  value={selectedAbility}
-                  onChange={(e) => setSelectedAbility(e.target.value)}
-                >
+                <select className="ui-select" value={selectedAbility} onChange={(e) => setSelectedAbility(e.target.value)}>
                   {ABILITIES.map((a) => (
                     <option key={a.key} value={a.key}>
                       {a.label}
@@ -330,21 +481,16 @@ export default function PlayerPage() {
             {(rollType === "Ataque" || rollType === "Dano") && (
               <div className="field">
                 <label className="field-label">{rollType}</label>
-                <select
-                  className="ui-select"
-                  value={selectedAttackId}
-                  onChange={(e) => setSelectedAttackId(e.target.value)}
-                >
+                <select className="ui-select" value={selectedAttackId} onChange={(e) => setSelectedAttackId(e.target.value)}>
                   {(rollType === "Ataque" ? attacksForAttackRoll : attacksAll).map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name || "Sem nome"} • {a.kind === "spell" ? "Magia" : "Arma"}
                     </option>
                   ))}
                 </select>
-
                 {rollType === "Ataque" && attacksAll.some((a) => a.kind === "spell" && a.hasAttackRoll === false) ? (
                   <div className="ui-muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    (magias marcadas como “sem teste de ataque” não aparecem aqui)
+                    (magias “sem teste de ataque” não aparecem aqui)
                   </div>
                 ) : null}
               </div>
@@ -353,35 +499,28 @@ export default function PlayerPage() {
             {rollType === "Livre" && (
               <div className="field">
                 <label className="field-label">Expressão</label>
-                <input
-                  className="ui-input"
-                  value={freeExpr}
-                  onChange={(e) => setFreeExpr(e.target.value)}
-                  placeholder='ex: 3d4+8'
-                />
+                <input className="ui-input" value={freeExpr} onChange={(e) => setFreeExpr(e.target.value)} placeholder='ex: 3d4+8' />
               </div>
             )}
 
             <div className="controls-footer">
-              <button className="ui-btn ui-btn-primary" onClick={handleRoll}>
+              <button
+                className="ui-btn ui-btn-primary"
+                onClick={async () => {
+                  await handleRoll();
+                  setShowRoller(false);
+                  setActiveTab("rolagens");
+                }}
+              >
                 ROLAR
               </button>
-
-              <button className="ui-btn ui-btn-ghost" onClick={() => setShowInfo((v) => !v)}>
-                ⚙️ Editar ficha
-              </button>
             </div>
-
-            <Modal open={showInfo} title="Configurações" onClose={() => setShowInfo(false)}>
-              <PlayerInfoForm playerId={playerId} player={player} onDone={() => setShowInfo(false)} />
-            </Modal>
           </div>
-        </div>
+        </Drawer>
 
-        {/* RIGHT: Painel de rolagens */}
-        <div className="feed-pane">
-          <LiveFeed viewerId={playerId} isMaster={false} title="Rolagens (mesa)" />
-        </div>
+        <Modal open={showInfo} title="Configurações" onClose={() => setShowInfo(false)}>
+          <PlayerInfoForm playerId={playerId} player={player} onDone={() => setShowInfo(false)} />
+        </Modal>
       </div>
     </div>
   );

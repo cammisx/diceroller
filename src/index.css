@@ -229,8 +229,12 @@ option{ color:#000; }
   display:grid;
   place-items:center;
   font-weight: 1000;
-  color: #0b0f14;
-  text-shadow: none;
+  /* Herda a cor do tema (igual ao resto do texto) */
+  color: currentColor;
+  /* Leve sombra pra manter leitura em fundos claros */
+  text-shadow:
+    0 1px 0 color-mix(in srgb, var(--bg) 55%, transparent),
+    0 0 12px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 /* ===== Controles ===== */
@@ -336,6 +340,197 @@ option{ color:#000; }
 
 .ui-modal-body{
   padding: 16px;
+  overflow: auto;
+}
+
+
+/* ===============================
+   Sheet layout (mobile-first)
+   =============================== */
+.sheet-layout{
+  width: min(980px, 100%);
+  margin: 0 auto;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.sheet-header{ padding: 14px; }
+
+.sheet-header-top{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sheet-header-actions{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sheet-tabs{
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sheet-tabs::-webkit-scrollbar{ height: 8px; }
+
+.sheet-tab{
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  font-weight: 900;
+  font-size: 13px;
+  opacity: 0.92;
+}
+
+.sheet-tab.active{
+  background: color-mix(in srgb, var(--accent) 26%, var(--surface) 74%);
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border) 48%);
+  opacity: 1;
+}
+
+.sheet-content{ display: grid; gap: 12px; }
+
+.grid-cards{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat-card{
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+}
+
+.stat-top{
+  display:flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stat-label{ font-weight: 950; letter-spacing: .08em; opacity: .85; }
+.stat-score{ font-size: 20px; font-weight: 950; }
+.stat-mod{ margin-top: 10px; font-size: 16px; font-weight: 950; opacity: .95; }
+
+.list-cards{ display: grid; gap: 10px; }
+
+.row-card{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+}
+
+.row-title{ font-weight: 950; }
+
+.row-pill{
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 68%, transparent);
+  font-weight: 950;
+}
+
+.mini-btn{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  font-weight: 950;
+}
+
+@media (min-width: 840px){
+  .grid-cards{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+
+/* ===============================
+   Floating roll button
+   =============================== */
+.fab-roll{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border) 45%);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface) 78%);
+  box-shadow: 0 18px 40px rgba(0,0,0,.35);
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  z-index: 9998;
+}
+
+.fab-roll:active{ transform: translateY(1px); }
+
+
+/* ===============================
+   Drawer (bottom sheet)
+   =============================== */
+.ui-drawer-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.62);
+  backdrop-filter: blur(6px);
+  display: grid;
+  align-items: end;
+  padding: 14px;
+  z-index: 9999;
+}
+
+.ui-drawer{
+  width: min(760px, 100%);
+  margin: 0 auto;
+  max-height: min(88vh, 860px);
+  background: color-mix(in srgb, var(--surface) 92%, #000 8%);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+}
+
+.ui-drawer-handle{
+  width: 56px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  margin: 10px auto 0;
+}
+
+.ui-drawer-header{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.ui-drawer-title{ font-weight: 950; }
+
+.ui-drawer-body{
+  padding: 14px;
   overflow: auto;
 }
 
