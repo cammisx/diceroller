@@ -11,6 +11,37 @@ import PlayerSetup from "../components/playerSetup.jsx";
 import PlayerInfoForm from "../components/PlayerInfoForm";
 import Modal from "../components/Modal";
 import { rollD20, abilityModifier, rollDiceExpression, formatDiceResult } from "../lib/dice";
+import { useState } from "react";
+import ToggleButton from "../components/ToggleButton";
+
+export default function PlayerPage() {
+  const [secret, setSecret] = useState(false);
+  const [adv, setAdv] = useState(null); // null | "adv" | "dis"
+
+  return (
+    <div className="toggle-group">
+      <ToggleButton active={secret} onClick={() => setSecret(v => !v)}>
+        Rolagem Secreta
+      </ToggleButton>
+
+      <ToggleButton
+        active={adv === "adv"}
+        onClick={() => setAdv(adv === "adv" ? null : "adv")}
+      >
+        Vantagem
+      </ToggleButton>
+
+      <ToggleButton
+        active={adv === "dis"}
+        onClick={() => setAdv(adv === "dis" ? null : "dis")}
+      >
+        Desvantagem
+      </ToggleButton>
+    </div>
+  );
+}
+
+
 
 const ABILITIES = [
   { key: "str", label: "Força", short: "FOR" },
