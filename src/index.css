@@ -386,3 +386,70 @@ option{ color:#000; }
   pointer-events: none;
   opacity: .8;
 }
+/* ===============================
+   TOGGLES (Player)
+   =============================== */
+
+.toggle-group{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.toggle-btn{
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  cursor: pointer;
+  line-height: 1;
+  user-select: none;
+
+  transition:
+    transform .12s ease,
+    background .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease,
+    filter .2s ease;
+}
+
+.toggle-btn:hover{
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: 0 10px 22px rgba(0,0,0,.25);
+  filter: brightness(1.03);
+}
+
+.toggle-btn:active{
+  transform: translateY(0px) scale(.98);
+}
+
+.toggle-btn.active{
+  border-color: color-mix(in srgb, var(--accent) 75%, var(--border));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 30%, var(--surface)),
+    color-mix(in srgb, var(--accent2) 18%, var(--surface))
+  );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 14px 34px rgba(0,0,0,.35);
+}
+
+.toggle-btn.active::before{
+  content: "";
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  margin-right: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 75%, #fff);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 50%, transparent);
+  transform: translateY(-1px);
+}
