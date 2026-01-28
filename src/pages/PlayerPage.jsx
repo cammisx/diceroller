@@ -98,6 +98,28 @@ export default function PlayerPage() {
     });
   }, [attacksAll]);
 
+  // ⚠️ Importante: hooks não podem ficar "depois" de returns condicionais.
+  // Então a parte de computar perícias fica aqui em cima e lida com player indefinido.
+  const levelNow = player?.level || 1;
+  const pbNow = proficiencyBonus(levelNow);
+  const skillComputed = useMemo(() => {
+    return SKILLS.map((s) => {
+      const score = player?.abilities?.[s.ability] ?? 10;
+      const mod = abilityModifier(score);
+      const entry = player?.skills?.[s.key] || { proficient: false, bonus: 0 };
+      const prof = entry.proficient ? pbNow : 0;
+      const extra = Number(entry.bonus || 0);
+      return {
+        ...s,
+        proficient: !!entry.proficient,
+        totalBonus: mod + prof + extra,
+        mod,
+        prof,
+        extra,
+      };
+    });
+  }, [player?.abilities, player?.skills, pbNow]);
+
   // Mantém um ataque selecionado válido
   useEffect(() => {
     const list = rollType === "Ataque" ? attacksForAttackRoll : attacksAll;
@@ -248,26 +270,6 @@ export default function PlayerPage() {
     { key: "notas", label: "Notas" },
     { key: "rolagens", label: "Rolagens" },
   ];
-
-  const skillComputed = useMemo(() => {
-    const L = Number(level) || 1;
-    const pbNow = proficiencyBonus(L);
-    return SKILLS.map((s) => {
-      const score = player.abilities?.[s.ability] ?? 10;
-      const mod = abilityModifier(score);
-      const entry = player.skills?.[s.key] || { proficient: false, bonus: 0 };
-      const prof = entry.proficient ? pbNow : 0;
-      const extra = Number(entry.bonus || 0);
-      return {
-        ...s,
-        proficient: !!entry.proficient,
-        totalBonus: mod + prof + extra,
-        mod,
-        prof,
-        extra,
-      };
-    });
-  }, [player.abilities, player.skills, level]);
 
   return (
     <div className="player-page">
