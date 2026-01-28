@@ -67,8 +67,6 @@ export default function PlayerPage() {
   const [showInfo, setShowInfo] = useState(false);
   const [showRoller, setShowRoller] = useState(false);
   const [activeTab, setActiveTab] = useState("atributos");
-  const [showRoller, setShowRoller] = useState(false);
-  const [activeTab, setActiveTab] = useState("atributos");
 
   const [isSecretRoll, setIsSecretRoll] = useState(false);
   const [isAdvantage, setIsAdvantage] = useState(false);
