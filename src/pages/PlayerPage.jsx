@@ -11,10 +11,6 @@ import PlayerSetup from "../components/playerSetup.jsx";
 import PlayerInfoForm from "../components/PlayerInfoForm";
 import Modal from "../components/Modal";
 import { rollD20, abilityModifier, rollDiceExpression, formatDiceResult } from "../lib/dice";
-import ToggleButton from "../components/ToggleButton";
-
-
-
 
 const ABILITIES = [
   { key: "str", label: "Força", short: "FOR" },

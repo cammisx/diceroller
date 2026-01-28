@@ -2,7 +2,7 @@ import { useState } from "react";
 import { setDoc, serverTimestamp } from "firebase/firestore";
 import { playerRef } from "../lib/refs";
 import { nanoid } from "nanoid";
-import { THEME_NAMES } from "../theme/themes";
+import ThemePicker from "./ThemePicker";
 
 
 
@@ -130,20 +130,8 @@ function removeAttack(id) {
       <h3 style={{ marginTop: 16 }}>Preferências</h3>
 
 <label style={styles.label}>Tema</label>
-<select
-  value={theme}
-  onChange={(e) => setTheme(e.target.value)}
- className="ui-input"
->
-  {THEME_NAMES.map((name) => (
-    <option key={name} value={name}>
-      {name}
-    </option>
-  ))}
-</select>
-
-
-      <label style={styles.label}>Nível</label>
+<ThemePicker value={theme} onChange={setTheme} />
+<label style={styles.label}>Nível</label>
       <input
         type="number"
         min={1}

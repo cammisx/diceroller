@@ -338,47 +338,51 @@ option{ color:#000; }
   padding: 16px;
   overflow: auto;
 }
-.toggle-btn {
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 200, 120, 0.25);
-  background: rgba(0, 0, 0, 0.35);
-  color: #e6e1d8;
-  font-weight: 600;
-  cursor: pointer;
 
-  transition:
-    background 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.1s ease,
-    color 0.2s ease;
-}
 
-.toggle-btn:hover {
-  background: rgba(255, 200, 120, 0.08);
-  transform: translateY(-1px);
-}
-
-.toggle-btn.active {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 190, 90, 0.35),
-    rgba(160, 90, 20, 0.35)
-  );
-  border-color: rgba(255, 200, 120, 0.8);
-  color: #fff6e5;
-  box-shadow:
-    0 0 0 1px rgba(255, 200, 120, 0.6),
-    0 0 18px rgba(255, 160, 60, 0.35);
-}
-
-.toggle-btn.active::before {
-  content: "●";
-  margin-right: 8px;
-  color: #ffd37a;
-}
-.toggle-group {
+/* ===============================
+   Theme picker (color circles)
+   =============================== */
+.theme-picker{
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 2px 2px;
+}
+
+.theme-swatch{
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  box-shadow: 0 8px 18px rgba(0,0,0,.25);
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease, filter .2s ease;
+  background-size: cover;
+  background-position: center;
+}
+
+.theme-swatch:hover{
+  transform: translateY(-1px);
+  filter: saturate(1.15);
+  box-shadow: 0 10px 22px rgba(0,0,0,.32);
+}
+
+.theme-swatch.active{
+  border-color: color-mix(in srgb, var(--accent) 70%, #fff 30%);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 12px 26px rgba(0,0,0,.38);
+}
+
+.theme-swatch.active::after{
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--accent2) 55%, transparent);
+  pointer-events: none;
+  opacity: .8;
 }
