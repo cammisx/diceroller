@@ -74,6 +74,47 @@ function buildCritExpression(expr, multiplier = 2) {
   });
 }
 
+// Aplica modificadores de crítico no TOTAL do dano base, em ordem (esq -> dir).
+// Exemplos:
+//  - "x2 + 3" => (base * 2) + 3
+//  - "+2 x3"  => (base + 2) * 3
+// Aceita tokens: +N, -N, xN, *N, /N (com ou sem espaços).
+function applyCritOps(baseTotal, opsRaw) {
+  let value = Number(baseTotal) || 0;
+  const raw = String(opsRaw || "").trim().toLowerCase();
+  if (!raw) return value;
+
+  const tokens = raw.match(/([+\-]\s*\d+|x\s*\d+|\*\s*\d+|\/\s*\d+)/g);
+  if (!tokens) return value;
+
+  for (const t of tokens) {
+    const tok = t.replace(/\s+/g, "");
+    if (!tok) continue;
+
+    if (tok.startsWith("+")) {
+      value = value + (Number(tok.slice(1)) || 0);
+      continue;
+    }
+    if (tok.startsWith("-")) {
+      value = value - (Number(tok.slice(1)) || 0);
+      continue;
+    }
+    if (tok.startsWith("x") || tok.startsWith("*")) {
+      const m = Number(tok.slice(1));
+      if (Number.isFinite(m)) value = value * m;
+      continue;
+    }
+    if (tok.startsWith("/")) {
+      const d = Number(tok.slice(1));
+      if (Number.isFinite(d) && d !== 0) value = value / d;
+      continue;
+    }
+  }
+
+  // arredonda para inteiro, porque dano em RPG normalmente é inteiro
+  return Math.round(value);
+}
+
 export default function PlayerPage() {
   const { playerId } = useParams();
   const { player, loading } = usePlayer(playerId);
@@ -117,8 +158,9 @@ export default function PlayerPage() {
     name: "",
     description: "",
     dice: "",
-    critDice: "",
-    ability: "str",
+    crit: "",
+    critOn: "",
+    ability: "str", // str | dex | none
     bonusAdditional: 0,
     hasAttackRoll: true,
   });
@@ -304,15 +346,19 @@ export default function PlayerPage() {
     const atk = attacksForAttackRoll.find((a) => a.id === selectedAttackId);
     if (!atk) return alert("Selecione um ataque.");
 
-    const abilityKey = atk.ability || "str";
-    const score = player.abilities?.[abilityKey] ?? 10;
-    const mod = abilityModifier(score);
+    // atributo: Força, Destreza ou Nenhum
+    const abilityKey = (atk.ability || "str").toLowerCase();
+    const mod = abilityKey === "none" ? 0 : abilityModifier(player.abilities?.[abilityKey] ?? 10);
 
     const bonusAdditional = Number(atk.bonusAdditional || 0);
     const pb = proficiencyBonus(player.level);
 
     const d20res = rollD20WithState();
     const total = d20res.d20 + mod + pb + bonusAdditional;
+
+    // crit no dado (ex: 18 => 18,19,20 crita)
+    const critOn = Number(atk.critOn);
+    const critTriggered = d20res.d20 === 20 || (Number.isFinite(critOn) && critOn >= 2 && d20res.d20 >= critOn);
 
     // Precisamos do ID do doc pra permitir "Rolar dano" no feed e/ou auto-dano no crítico.
     const attackDoc = await addDoc(rollsCol(), {
@@ -323,27 +369,54 @@ export default function PlayerPage() {
       subtype: atk.name || "Ataque",
       total,
       nat20: d20res.d20 === 20,
+      crit: critTriggered,
       attackId: atk.id,
       damageExpr: atk.dice || "",
       detail: `${d20res.detail} ${mod >= 0 ? "+" : ""}${mod} +PB(${pb})${
         bonusAdditional ? ` ${bonusAdditional >= 0 ? "+" : ""}${bonusAdditional}` : ""
-      } = ${total} • ${atk.kind === "spell" ? "Magia" : "Arma"}${d20res.d20 === 20 ? " • CRÍTICO!" : ""}`,
+      } = ${total} • ${atk.kind === "spell" ? "Magia" : "Arma"}${critTriggered ? " • CRÍTICO!" : ""}`,
     });
 
-    // 20 natural -> rola dano automaticamente junto
-    if (d20res.d20 === 20 && (atk.dice || "").trim()) {
-      const critExpr = (atk.critDice || "").trim() ? atk.critDice : buildCritExpression(atk.dice, 2);
-      const diceResult = rollDiceExpression(critExpr || "");
-      const diceText = diceResult ? formatDiceResult(diceResult) : `(dice inválido: "${critExpr || ""}")`;
-await addDoc(rollsCol(), {
+    // crítico -> rola dano automaticamente junto (com regra custom)
+    if (critTriggered && (atk.dice || "").trim()) {
+      const baseRes = rollDiceExpression(atk.dice || "");
+      const baseText = baseRes ? formatDiceResult(baseRes) : `(dice inválido: "${atk.dice || ""}")`;
+      const baseTotal = baseRes?.total ?? 0;
+
+      const critMod = String(atk.crit || "").trim();
+      let finalTotal = baseTotal;
+      let detailSuffix = "";
+
+      if (critMod) {
+        // Se tiver "d" (ex: 4d8+3), interpreta como expressão completa para o crítico.
+        if (/d\d+/i.test(critMod)) {
+          const critRes = rollDiceExpression(critMod);
+          finalTotal = critRes?.total ?? 0;
+          const critText = critRes ? formatDiceResult(critRes) : `(dice inválido: "${critMod}")`;
+          detailSuffix = `• ${critText}`;
+        } else {
+          // Caso contrário, aplica operações no total do dano base.
+          finalTotal = applyCritOps(baseTotal, critMod);
+          detailSuffix = `• ${baseText} ⇒ ${critMod} = ${finalTotal}`;
+        }
+      } else {
+        // padrão: dobra apenas os dados (estilo 5e)
+        const critExpr = buildCritExpression(atk.dice, 2);
+        const critRes = rollDiceExpression(critExpr || "");
+        finalTotal = critRes?.total ?? 0;
+        const critText = critRes ? formatDiceResult(critRes) : `(dice inválido: "${critExpr || ""}")`;
+        detailSuffix = `• ${critText}`;
+      }
+
+      await addDoc(rollsCol(), {
         playerId,
         isSecret: isSecretRoll,
         createdAt: serverTimestamp(),
         type: "Dano",
         subtype: atk.name || "Dano",
-        total: diceResult?.total ?? 0,
+        total: finalTotal,
         fromAttackRollId: attackDoc.id,
-        detail: `${atk.kind === "spell" ? "Magia" : "Arma"} • ${diceText} • (crítico)`,
+        detail: `${atk.kind === "spell" ? "Magia" : "Arma"} • (crítico) ${detailSuffix}`,
       });
     }
   }
@@ -975,15 +1048,29 @@ await addDoc(rollsCol(), {
               </div>
 
               <div className="field">
-                <label className="field-label">Crítico (expressão)</label>
+                <label className="field-label">Crítico (modificador)</label>
                 <input
                   className="ui-input"
-                  value={newAction.critDice}
-                  onChange={(e) => setNewAction((a) => ({ ...a, critDice: e.target.value }))}
-                  placeholder='Ex: "4d8+3" (opcional)'
+                  value={newAction.crit}
+                  onChange={(e) => setNewAction((a) => ({ ...a, crit: e.target.value }))}
+                  placeholder='Ex: "x2 + 3" ou "+2 x3" (opcional)'
                 />
                 <div className="ui-muted" style={{ fontSize: 12, marginTop: 6 }}>
-                  Se vazio, dobra apenas os dados automaticamente.
+                  Se vazio, dobra apenas os dados automaticamente. Se você escrever uma expressão com "d" (ex: "4d8+3"), ela substitui o dano no crítico.
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="field-label">Acerto crítico (no dado)</label>
+                <input
+                  className="ui-input"
+                  inputMode="numeric"
+                  value={newAction.critOn}
+                  onChange={(e) => setNewAction((a) => ({ ...a, critOn: e.target.value }))}
+                  placeholder='Ex: "18" (18–20 crita)'
+                />
+                <div className="ui-muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  Se preenchido, qualquer d20 com esse valor ou maior também vira crítico (além do 20 natural).
                 </div>
               </div>
 
@@ -993,10 +1080,7 @@ await addDoc(rollsCol(), {
                 <select className="ui-select" value={newAction.ability} onChange={(e) => setNewAction((a) => ({ ...a, ability: e.target.value }))}>
                   <option value="str">Força</option>
                   <option value="dex">Destreza</option>
-                  <option value="con">Constituição</option>
-                  <option value="int">Inteligência</option>
-                  <option value="wis">Sabedoria</option>
-                  <option value="cha">Carisma</option>
+                  <option value="none">Nenhum</option>
                 </select>
               </div>
 
@@ -1031,7 +1115,8 @@ await addDoc(rollsCol(), {
                       description: newAction.description || "",
                       kind: newAction.type === "Magia" ? "spell" : "weapon",
                       dice: newAction.dice || "",
-                      critDice: newAction.critDice || "",
+                      crit: newAction.crit || "",
+                      critOn: newAction.critOn ? Number(newAction.critOn) : undefined,
                       ability: newAction.ability || "str",
                       bonusAdditional: Number(newAction.bonusAdditional || 0),
                       hasAttackRoll: newAction.type === "Magia" ? newAction.hasAttackRoll : true,
@@ -1039,7 +1124,7 @@ await addDoc(rollsCol(), {
                     const next = [...attacksAll, entry];
                     await mergePlayer({ attacks: next });
                     setShowAddAction(false);
-                    setNewAction({ type: "Ataque", name: "", description: "", dice: "", critDice: "", ability: "str", bonusAdditional: 0, hasAttackRoll: true });
+                    setNewAction({ type: "Ataque", name: "", description: "", dice: "", crit: "", critOn: "", ability: "str", bonusAdditional: 0, hasAttackRoll: true });
                   }}
                 >
                   Adicionar
