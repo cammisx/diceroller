@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { nanoid } from "nanoid";
 import { playersCol, playerRef, npcsCol, npcRef, rollsCol, tableRef } from "../lib/refs";
-import { rollDiceExpression } from "../lib/dice";
+import { rollDiceExpression, formatDiceResult } from "../lib/dice";
 import LiveFeed from "../components/LiveFeed.jsx";
 import Drawer from "../components/Drawer.jsx";
 import Modal from "../components/Modal.jsx";
@@ -381,7 +381,6 @@ async function sendMasterRoll() {
     return;
   }
 
-  const { formatDiceResult } = await import("../lib/dice");
 
   if (rollerSecret) {
     setLastSecretResult(formatDiceResult(result));
@@ -404,12 +403,10 @@ async function sendMasterRoll() {
 
   // Secreta do mestre: não vai pro feed; fica só aqui no drawer
   if (rollerSecret) {
-    const { formatDiceResult } = await import("../lib/dice");
     setLastSecretResult(formatDiceResult(result));
     return;
   }
 
-  const { formatDiceResult } = await import("../lib/dice");
   await addDoc(rollsCol(), {
     createdAt: serverTimestamp(),
     playerId: "mestre",
