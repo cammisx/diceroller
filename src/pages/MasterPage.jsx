@@ -120,7 +120,9 @@ export default function MasterPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rollerOpen, setRollerOpen] = useState(false);
   const [rollerExpr, setRollerExpr] = useState("");
-  const [rollerSecret, setRollerSecret] = useState(false);
+  const [rollerSecret, setRollerSecret] = useState(true);
+  const [rollerAdv, setRollerAdv] = useState(false);
+  const [rollerDis, setRollerDis] = useState(false);
   const [lastSecretResult, setLastSecretResult] = useState("");
 
   const [tableData, setTableData] = useState(null);
@@ -325,14 +327,80 @@ export default function MasterPage() {
     await updateCombatState(next);
   }
 
-  async function sendMasterRoll() {
-  const expr = (rollerExpr || "").trim() || "1d20";
+function rollD20WithMasterState() {
+  if (!rollerAdv && !rollerDis) {
+    const d20 = Math.floor(Math.random() * 20) + 1;
+    return { d20, detail: `d20(${d20})` };
+  }
+  const a = Math.floor(Math.random() * 20) + 1;
+  const b = Math.floor(Math.random() * 20) + 1;
+  const chosen = rollerAdv ? Math.max(a, b) : Math.min(a, b);
+  const mode = rollerAdv ? "vantagem" : "desvantagem";
+  return { d20: chosen, detail: `2d20(${a}, ${b}) → ${chosen} (${mode})` };
+}
+
+async function sendMasterRoll() {
+  const raw = (rollerExpr || "").trim();
+  const expr = raw || "1d20";
+
+  // Vantagem/Desvantagem: suporta d20 (+/- mod)
+  const compact = expr.replace(/\s+/g, "");
+  const d20Match = compact.match(/^([0-9]*)d20([+-]\d+)?$/i);
+  if ((rollerAdv || rollerDis) && d20Match) {
+    const mod = d20Match[2] ? Number(d20Match[2]) : 0;
+    const { d20, detail } = rollD20WithMasterState();
+    const total = d20 + mod;
+
+    const detailStr = mod
+      ? `${detail} ${mod >= 0 ? "+" : "-"} ${Math.abs(mod)} = ${total}`
+      : `${detail} = ${total}`;
+
+    if (rollerSecret) {
+      setLastSecretResult(detailStr);
+      return;
+    }
+
+    await addDoc(rollsCol(), {
+      createdAt: serverTimestamp(),
+      playerId: "mestre",
+      isSecret: false,
+      type: "Livre",
+      subtype: "Livre",
+      total,
+      detail: detailStr,
+    });
+
+    setRollerExpr("");
+    setLastSecretResult("");
+    return;
+  }
 
   const result = rollDiceExpression(expr);
   if (!result) {
     alert(`Expressão inválida: "${expr}"`);
     return;
   }
+
+  const { formatDiceResult } = await import("../lib/dice");
+
+  if (rollerSecret) {
+    setLastSecretResult(formatDiceResult(result));
+    return;
+  }
+
+  await addDoc(rollsCol(), {
+    createdAt: serverTimestamp(),
+    playerId: "mestre",
+    isSecret: false,
+    type: "Livre",
+    subtype: "Livre",
+    total: result.total,
+    detail: formatDiceResult(result),
+  });
+
+  setRollerExpr("");
+  setLastSecretResult("");
+}
 
   // Secreta do mestre: não vai pro feed; fica só aqui no drawer
   if (rollerSecret) {
@@ -544,7 +612,35 @@ export default function MasterPage() {
                         <tr key={r.key}>
                           <td style={{ fontWeight: 900 }}>{r.name}</td>
                           <td>{r.hpMax}</td>
-                          
+
+<td>
+  <input
+    className="ui-input"
+    inputMode="numeric"
+    value={String(r.hpCurrent ?? "")}
+    onChange={async (e) => {
+      const nextVal = clampNum(e.target.value, 0);
+      if (r.kind === "player") {
+        await updateDoc(playerRef(r.id), { hpCurrent: nextVal, updatedAt: serverTimestamp() });
+      } else {
+        await updateDoc(npcRef(r.id), { hpCurrent: nextVal, updatedAt: serverTimestamp() });
+      }
+    }}
+  />
+</td>
+<td>
+  <input
+    className="ui-input"
+    inputMode="numeric"
+    value={r.initiative ? String(r.initiative) : ""}
+    onChange={async (e) => {
+      const nextVal = clampNum(e.target.value, 0);
+      const next = { ...(combatState || {}) };
+      next[r.key] = { ...(next[r.key] || {}), initiative: nextVal };
+      await updateCombatState(next);
+    }}
+  />
+</td>
 <td>
   <ConditionsTags
     value={r.conditions}
@@ -556,6 +652,7 @@ export default function MasterPage() {
     }}
   />
 </td>
+
                           <td style={{ width: 56, textAlign: "right" }}>
                             {r.kind === "npc" ? (
                               <button className="ui-btn ui-btn-danger" onClick={() => excludeNpcFromCombat(r.id)} title="Remover do combate">
@@ -639,14 +736,34 @@ export default function MasterPage() {
 <Drawer open={rollerOpen} onClose={() => setRollerOpen(false)} title="Rolador (Mestre)">
   <div className="ui-card" style={{ boxShadow: "none" }}>
     <div className="toggle-row" style={{ marginBottom: 10 }}>
-      <button
-        type="button"
-        className={"toggle-btn" + (rollerSecret ? " active" : "")}
-        onClick={() => setRollerSecret((v) => !v)}
-      >
-        Secreta
-      </button>
-    </div>
+  <button
+    type="button"
+    className={"toggle-btn" + (rollerSecret ? " active" : "")}
+    onClick={() => setRollerSecret((v) => !v)}
+  >
+    Secreta
+  </button>
+  <button
+    type="button"
+    className={"toggle-btn" + (rollerAdv ? " active" : "")}
+    onClick={() => {
+      setRollerAdv((v) => !v);
+      setRollerDis(false);
+    }}
+  >
+    Vantagem
+  </button>
+  <button
+    type="button"
+    className={"toggle-btn" + (rollerDis ? " active" : "")}
+    onClick={() => {
+      setRollerDis((v) => !v);
+      setRollerAdv(false);
+    }}
+  >
+    Desvantagem
+  </button>
+</div>
 
     <div className="field">
       <label className="field-label">Expressão</label>
