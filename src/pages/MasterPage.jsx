@@ -52,6 +52,9 @@ export default function MasterPage() {
   });
 
   const [combatScene, setCombatScene] = useState("");
+
+  const [combatAddOpen, setCombatAddOpen] = useState(false);
+  const [npcToAddId, setNpcToAddId] = useState("");
   const [combatState, setCombatState] = useState({}); // map: key -> { initiative, conditions }
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rollerOpen, setRollerOpen] = useState(false);
@@ -172,9 +175,33 @@ export default function MasterPage() {
     await setDoc(tableRef(), { combatState: nextState }, { merge: true });
   }
 
+  async function includeNpcInCombat(npcId) {
+    if (!npcId) return;
+    const key = `n:${npcId}`;
+    const next = { ...(combatState || {}) };
+    next[key] = { ...(next[key] || {}), included: true, excluded: false };
+    await updateCombatState(next);
+  }
+
+  async function excludeNpcFromCombat(npcId) {
+    const key = `n:${npcId}`;
+    const next = { ...(combatState || {}) };
+    next[key] = { ...(next[key] || {}), excluded: true, included: false };
+    await updateCombatState(next);
+  }
+
+  const sceneOptions = useMemo(() => {
+    const set = new Set();
+    for (const n of npcs) {
+      const s = String(n.scene || "").trim();
+      if (s) set.add(s);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [npcs]);
+
   const combatRows = useMemo(() => {
-    const scene = combatScene.trim();
-    const sceneNpcs = scene ? npcs.filter((n) => String(n.scene || "").trim() === scene) : [];
+    const scene = String(combatScene || "").trim();
+
     const playerRows = players.map((p) => ({
       kind: "player",
       key: `p:${p.id}`,
@@ -184,15 +211,33 @@ export default function MasterPage() {
       hpCurrent: clampNum(p.hpCurrent),
       initMod: clampNum(p.initiativeMod || 0),
     }));
-    const npcRows = sceneNpcs.map((n) => ({
-      kind: "npc",
-      key: `n:${n.id}`,
-      id: n.id,
-      name: n.name || n.id,
-      hpMax: clampNum(n.hpMax),
-      hpCurrent: clampNum(n.hpCurrent),
-      initMod: clampNum(n.initMod),
-    }));
+
+    const sceneNpcs = scene ? npcs.filter((n) => String(n.scene || "").trim() === scene) : [];
+
+    // NPCs adicionados manualmente ao combate (mesmo fora da cena filtrada)
+    const manualNpcIds = Object.keys(combatState || {})
+      .filter((k) => k.startsWith("n:") && combatState?.[k]?.included)
+      .map((k) => k.slice(2));
+
+    const manualNpcs = manualNpcIds
+      .map((id) => npcs.find((n) => n.id === id))
+      .filter(Boolean);
+
+    // União (sem duplicar) + respeita exclusões
+    const npcMap = new Map();
+    for (const n of [...sceneNpcs, ...manualNpcs]) npcMap.set(n.id, n);
+
+    const npcRows = Array.from(npcMap.values())
+      .filter((n) => !combatState?.[`n:${n.id}`]?.excluded)
+      .map((n) => ({
+        kind: "npc",
+        key: `n:${n.id}`,
+        id: n.id,
+        name: n.name || n.id,
+        hpMax: clampNum(n.hpMax),
+        hpCurrent: clampNum(n.hpCurrent),
+        initMod: clampNum(n.initMod),
+      }));
 
     const merged = [...playerRows, ...npcRows].map((r) => ({
       ...r,
@@ -205,15 +250,14 @@ export default function MasterPage() {
   }, [players, npcs, combatScene, combatState]);
 
   async function rollNpcInitiative() {
-    const scene = combatScene.trim();
-    const sceneNpcs = scene ? npcs.filter((n) => String(n.scene || "").trim() === scene) : [];
-    if (!sceneNpcs.length) return alert("Selecione uma Cena com NPCs para rolar iniciativa.");
+    const npcRows = combatRows.filter((r) => r.kind === "npc");
+    if (!npcRows.length) return alert("Não há NPCs no combate para rolar iniciativa.");
 
     const next = { ...(combatState || {}) };
-    for (const n of sceneNpcs) {
+    for (const r of npcRows) {
       const d20 = Math.floor(Math.random() * 20) + 1;
-      const total = d20 + clampNum(n.initMod);
-      next[`n:${n.id}`] = { ...(next[`n:${n.id}`] || {}), initiative: total };
+      const total = d20 + clampNum(r.initMod);
+      next[r.key] = { ...(next[r.key] || {}), initiative: total };
     }
     await updateCombatState(next);
   }
@@ -237,274 +281,382 @@ export default function MasterPage() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="app-title">Mestre</div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button className="ui-btn" onClick={() => setSettingsOpen(true)} title="Configurações">
-            ⚙️
-          </button>
-        </div>
-      </header>
-
-      <div className="tabs-row">
-        {[
-          { key: "jogadores", label: "Jogadores" },
-          { key: "combate", label: "Combate" },
-        ].map((t) => (
-          <button
-            key={t.key}
-            className={"tab-btn " + (activeTab === t.key ? "active" : "")}
-            onClick={() => setActiveTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <main className="app-main" style={{ paddingBottom: 90 }}>
-        {activeTab === "jogadores" && (
-          <div className="ui-card">
-            <h3 style={{ marginTop: 0 }}>Jogadores</h3>
-
-            <div className="form-row" style={{ gap: 8, flexWrap: "wrap" }}>
-              <input
-                className="ui-input"
-                placeholder='Nome do jogador (ex: "Chloë")'
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <button className="ui-btn ui-btn-primary" onClick={createPlayer}>
-                Criar
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-              {players.map((p) => {
-                const url = `${baseUrl}/${p.id}`;
-                return (
-                  <div key={p.id} className="list-row">
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700 }}>{p.displayName || p.id}</div>
-                      <div className="muted" style={{ fontSize: 12, wordBreak: "break-all" }}>
-                        {url}
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="ui-btn"
-                        onClick={() => navigator.clipboard.writeText(url)}
-                        title="Copiar link"
-                      >
-                        Copiar
-                      </button>
-                      <button className="ui-btn ui-btn-danger" onClick={() => deletePlayerById(p.id)} title="Apagar">
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              {!players.length && <div className="muted">Nenhum jogador cadastrado ainda.</div>}
-            </div>
-
-            <hr style={{ margin: "14px 0", opacity: 0.25 }} />
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0 }}>NPCs</h3>
-              <button className="ui-btn ui-btn-primary" onClick={() => setNpcModalOpen(true)} title="Adicionar NPC">
-                +
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-              {npcs.map((n) => (
-                <div key={n.id} className="list-row">
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700 }}>
-                      {n.name} <span className="muted" style={{ fontWeight: 500 }}>• {n.scene || "sem cena"}</span>
-                    </div>
-                    <div className="muted" style={{ fontSize: 12 }}>
-                      HP: {clampNum(n.hpCurrent)}/{clampNum(n.hpMax)} • CA: {clampNum(n.armorClass, 10)} • Init: {clampNum(n.initMod)}
-                    </div>
-                  </div>
-                  <button className="ui-btn ui-btn-danger" onClick={() => deleteNpcById(n.id)} title="Apagar NPC">
-                    🗑️
-                  </button>
-                </div>
-              ))}
-              {!npcs.length && <div className="muted">Nenhum NPC cadastrado.</div>}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "combate" && (
-          <div className="ui-card">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Combate</h3>
-
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <input
-                  className="ui-input"
-                  style={{ maxWidth: 220 }}
-                  placeholder="Cena (ex: Torre)"
-                  value={combatScene}
-                  onChange={(e) => setCombatScene(e.target.value)}
-                />
-                <button className="ui-btn" onClick={() => setNpcModalOpen(true)} title="Adicionar NPC">
-                  + NPC
-                </button>
-                <button className="ui-btn ui-btn-primary" onClick={rollNpcInitiative}>
-                  Rolar iniciativa (NPCs)
+    <div className="player-page">
+      <div className="sheet-layout sheet-layout-two">
+        <div className="sheet-main">
+          <header className="sheet-header ui-card">
+            <div className="sheet-header-top">
+              <div className="player-name">Mestre</div>
+              <div className="sheet-header-actions">
+                <button className="ui-btn ui-btn-ghost" onClick={() => setSettingsOpen(true)} aria-label="Configurações">
+                  ⚙️
                 </button>
               </div>
             </div>
 
-            <div className="table-wrap" style={{ marginTop: 12 }}>
-              <table className="ui-table">
-                <thead>
-                  <tr>
-                    <th>Nome</th>
-                    <th>HP Máx</th>
-                    <th>HP Atual</th>
-                    <th>Iniciativa</th>
-                    <th>Condições</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {combatRows.map((r) => (
-                    <tr key={r.key}>
-                      <td style={{ fontWeight: 700 }}>{r.name}</td>
-                      <td>{r.hpMax}</td>
-                      <td>
-                        <input
-                          className="ui-input"
-                          style={{ width: 90 }}
-                          inputMode="numeric"
-                          value={r.hpCurrent}
-                          onChange={async (e) => {
-                            const v = clampNum(e.target.value, 0);
-                            if (r.kind === "player") {
-                              await setDoc(playerRef(r.id), { hpCurrent: v, updatedAt: serverTimestamp() }, { merge: true });
-                            } else {
-                              await setDoc(npcRef(r.id), { hpCurrent: v, updatedAt: serverTimestamp() }, { merge: true });
-                            }
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="ui-input"
-                          style={{ width: 90 }}
-                          inputMode="numeric"
-                          value={r.initiative || ""}
-                          onChange={async (e) => {
-                            const v = clampNum(e.target.value, 0);
-                            const next = { ...(combatState || {}) };
-                            next[r.key] = { ...(next[r.key] || {}), initiative: v };
-                            await updateCombatState(next);
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="ui-input"
-                          value={r.conditions}
-                          onChange={async (e) => {
-                            const next = { ...(combatState || {}) };
-                            next[r.key] = { ...(next[r.key] || {}), conditions: e.target.value };
-                            await updateCombatState(next);
-                          }}
-                          placeholder="Ex: Envenenado"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {!combatRows.length && (
-                    <tr>
-                      <td colSpan={5} className="muted">
-                        Nenhum participante.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <nav className="sheet-tabs" aria-label="Seções do mestre">
+              {[
+                { key: "jogadores", label: "Jogadores" },
+                { key: "npcs", label: "NPCs" },
+                { key: "combate", label: "Combate" },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  className={"sheet-tab" + (activeTab === t.key ? " active" : "")}
+                  onClick={() => setActiveTab(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+          </header>
 
-            <div style={{ marginTop: 14 }}>
-              <h4 style={{ margin: 0, marginBottom: 8 }}>Feed da mesa</h4>
-              <LiveFeed viewerId="mestre" isMaster maxItems={15} ttlMinutes={30} title="Rolagens da mesa" />
-            </div>
-          </div>
-        )}
-      </main>
+          <main className="sheet-content" style={{ paddingBottom: 90 }}>
+            {activeTab === "jogadores" && (
+              <div className="ui-card">
+                <h3 style={{ marginTop: 0 }}>Jogadores</h3>
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <input
+                    className="ui-input"
+                    placeholder='Nome do jogador (ex: "Chloë")'
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    style={{ flex: "1 1 220px" }}
+                  />
+                  <button className="ui-btn ui-btn-primary" onClick={createPlayer} style={{ flex: "0 0 auto" }}>
+                    + Criar
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  {players.map((p) => {
+                    const url = `${baseUrl}/${p.id}`;
+                    return (
+                      <div
+                        key={p.id}
+                        className="list-row clickable"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") window.open(url, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 900 }}>{p.displayName || p.id}</div>
+                          <div className="muted" style={{ fontSize: 12, wordBreak: "break-all" }}>
+                            {url}
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            className="ui-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(url);
+                            }}
+                            title="Copiar link"
+                          >
+                            📋
+                          </button>
+                          <button
+                            className="ui-btn ui-btn-danger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePlayerById(p.id);
+                            }}
+                            title="Apagar"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {!players.length && <div className="muted">Nenhum jogador cadastrado ainda.</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "npcs" && (
+              <div className="ui-card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <h3 style={{ marginTop: 0, marginBottom: 0 }}>NPCs</h3>
+                  <button className="ui-btn ui-btn-primary" onClick={() => setNpcModalOpen(true)} title="Adicionar NPC">
+                    + Adicionar NPC
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  {npcs.map((n) => (
+                    <div key={n.id} className="list-row">
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 900 }}>
+                          {n.name || "NPC"}{" "}
+                          <span className="muted" style={{ fontWeight: 700 }}>
+                            • {String(n.scene || "").trim() || "sem cena"}
+                          </span>
+                        </div>
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          HP: {clampNum(n.hpCurrent)}/{clampNum(n.hpMax)} • CA: {clampNum(n.armorClass, 10)} • Init:{" "}
+                          {clampNum(n.initMod)}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button className="ui-btn" onClick={() => includeNpcInCombat(n.id)} title="Adicionar ao combate">
+                          ⚔️
+                        </button>
+                        <button className="ui-btn ui-btn-danger" onClick={() => deleteNpcById(n.id)} title="Apagar NPC">
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {!npcs.length && <div className="muted">Nenhum NPC cadastrado.</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "combate" && (
+              <div className="ui-card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <h3 style={{ marginTop: 0, marginBottom: 0 }}>Combate</h3>
+
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <select
+                      className="ui-input"
+                      style={{ minWidth: 210 }}
+                      value={combatScene}
+                      onChange={(e) => setCombatScene(e.target.value)}
+                      title="Filtrar NPCs por cena"
+                    >
+                      <option value="">Cena (nenhuma)</option>
+                      {sceneOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button className="ui-btn" onClick={() => setCombatAddOpen(true)} title="Adicionar NPC ao combate">
+                      + NPC
+                    </button>
+
+                    <button className="ui-btn ui-btn-primary" onClick={rollNpcInitiative} title="Rolar iniciativa para NPCs no combate">
+                      Rolar iniciativa
+                    </button>
+                  </div>
+                </div>
+
+                <div className="table-wrap" style={{ marginTop: 12 }}>
+                  <table className="ui-table">
+                    <thead>
+                      <tr>
+                        <th>Nome</th>
+                        <th>HP Máx</th>
+                        <th>HP Atual</th>
+                        <th>Iniciativa</th>
+                        <th>Condições</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {combatRows.map((r) => (
+                        <tr key={r.key}>
+                          <td style={{ fontWeight: 900 }}>{r.name}</td>
+                          <td>{r.hpMax}</td>
+                          <td>
+                            <input
+                              className="ui-input"
+                              style={{ width: 90 }}
+                              inputMode="numeric"
+                              value={r.hpCurrent}
+                              onChange={async (e) => {
+                                const v = clampNum(e.target.value, 0);
+                                if (r.kind === "player") {
+                                  await setDoc(playerRef(r.id), { hpCurrent: v, updatedAt: serverTimestamp() }, { merge: true });
+                                } else {
+                                  await setDoc(npcRef(r.id), { hpCurrent: v, updatedAt: serverTimestamp() }, { merge: true });
+                                }
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="ui-input"
+                              style={{ width: 90 }}
+                              inputMode="numeric"
+                              value={r.initiative || ""}
+                              onChange={async (e) => {
+                                const v = clampNum(e.target.value, 0);
+                                const next = { ...(combatState || {}) };
+                                next[r.key] = { ...(next[r.key] || {}), initiative: v };
+                                await updateCombatState(next);
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="ui-input"
+                              value={r.conditions}
+                              onChange={async (e) => {
+                                const next = { ...(combatState || {}) };
+                                next[r.key] = { ...(next[r.key] || {}), conditions: e.target.value };
+                                await updateCombatState(next);
+                              }}
+                              placeholder="Ex: Envenenado"
+                            />
+                          </td>
+                          <td style={{ width: 56, textAlign: "right" }}>
+                            {r.kind === "npc" ? (
+                              <button className="ui-btn ui-btn-danger" onClick={() => excludeNpcFromCombat(r.id)} title="Remover do combate">
+                                ✕
+                              </button>
+                            ) : (
+                              <span className="muted" style={{ fontSize: 12 }}>
+                                —
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {!combatRows.length && (
+                        <tr>
+                          <td colSpan={6} className="muted">
+                            Nenhum participante.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+
+        <aside className="sheet-side">
+          <LiveFeed viewerId="mestre" isMaster title="Rolagens (mesa)" maxItems={15} ttlMinutes={30} />
+        </aside>
+      </div>
 
       {/* Floating Roller */}
       <button className="fab" onClick={() => setRollerOpen(true)} title="Abrir rolador">
         🎲
       </button>
 
+      {/* Combat: add NPC */}
+      <Modal open={combatAddOpen} onClose={() => setCombatAddOpen(false)} title="Adicionar NPC ao combate">
+        <div className="field">
+          <label className="field-label">Escolher NPC</label>
+          <select className="ui-input" value={npcToAddId} onChange={(e) => setNpcToAddId(e.target.value)}>
+            <option value="">Selecione...</option>
+            {npcs.map((n) => (
+              <option key={n.id} value={n.id}>
+                {(n.name || "NPC") + (n.scene ? ` • ${n.scene}` : "")}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+          <button
+            className="ui-btn ui-btn-primary"
+            onClick={async () => {
+              if (!npcToAddId) return;
+              await includeNpcInCombat(npcToAddId);
+              setNpcToAddId("");
+              setCombatAddOpen(false);
+            }}
+          >
+            Adicionar
+          </button>
+
+          <button
+            className="ui-btn"
+            onClick={() => {
+              setCombatAddOpen(false);
+              setNpcModalOpen(true);
+            }}
+          >
+            Criar novo NPC
+          </button>
+        </div>
+      </Modal>
+
+      {/* Roller Drawer */}
       <Drawer open={rollerOpen} onClose={() => setRollerOpen(false)} title="Rolagem rápida (Mestre)">
         <div className="field">
           <label className="field-label">Expressão</label>
           <input className="ui-input" value={rollerExpr} onChange={(e) => setRollerExpr(e.target.value)} placeholder="Ex: 2d20kh1+5" />
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button className="ui-btn ui-btn-primary" onClick={sendMasterRoll}>
-            Rolar (envia pro feed)
+          <button className="ui-btn ui-btn-primary" onClick={rollQuickExpr} style={{ flex: 1 }}>
+            Rolar
           </button>
-          <button className="ui-btn" onClick={() => setRollerExpr("")}>
-            Limpar
+          <button className="ui-btn" onClick={() => setRollerOpen(false)}>
+            Fechar
           </button>
         </div>
       </Drawer>
 
+      {/* Settings */}
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Configurações do Mestre">
         <ThemePicker
           value={tableData?.preferences?.theme || "Neon Tokyo"}
-          onChange={async (theme) => {
-            await setDoc(tableRef(), { preferences: { ...(tableData?.preferences || {}), theme } }, { merge: true });
+          onChange={async (nextName) => {
+            applyThemeVars(getTheme(nextName));
+            await setDoc(tableRef(), { preferences: { ...(tableData?.preferences || {}), theme: nextName } }, { merge: true });
           }}
         />
       </Modal>
 
-      <Modal open={npcModalOpen} onClose={() => setNpcModalOpen(false)} title="Adicionar NPC">
-        <div className="form-grid">
+      {/* NPC modal */}
+      <Modal open={npcModalOpen} onClose={() => setNpcModalOpen(false)} title="Cadastrar NPC">
+        <div className="grid-cards" style={{ marginTop: 10 }}>
           <div className="field">
             <label className="field-label">Nome</label>
-            <input className="ui-input" value={npcForm.name} onChange={(e) => setNpcForm((s) => ({ ...s, name: e.target.value }))} />
+            <input className="ui-input" value={npcForm.name} onChange={(e) => setNpcForm((f) => ({ ...f, name: e.target.value }))} />
           </div>
+
           <div className="field">
             <label className="field-label">Cena</label>
-            <input className="ui-input" value={npcForm.scene} onChange={(e) => setNpcForm((s) => ({ ...s, scene: e.target.value }))} placeholder="Ex: Taverna" />
+            <input className="ui-input" value={npcForm.scene} onChange={(e) => setNpcForm((f) => ({ ...f, scene: e.target.value }))} placeholder="Ex: Torre" />
           </div>
+
           <div className="field">
-            <label className="field-label">HP Max</label>
-            <input className="ui-input" inputMode="numeric" value={npcForm.hpMax} onChange={(e) => setNpcForm((s) => ({ ...s, hpMax: e.target.value }))} />
+            <label className="field-label">HP Máx</label>
+            <input className="ui-input" inputMode="numeric" value={npcForm.hpMax} onChange={(e) => setNpcForm((f) => ({ ...f, hpMax: clampNum(e.target.value, 0) }))} />
           </div>
+
           <div className="field">
             <label className="field-label">HP Atual</label>
-            <input className="ui-input" inputMode="numeric" value={npcForm.hpCurrent} onChange={(e) => setNpcForm((s) => ({ ...s, hpCurrent: e.target.value }))} />
+            <input className="ui-input" inputMode="numeric" value={npcForm.hpCurrent} onChange={(e) => setNpcForm((f) => ({ ...f, hpCurrent: clampNum(e.target.value, 0) }))} />
           </div>
+
           <div className="field">
             <label className="field-label">Armor Class</label>
-            <input className="ui-input" inputMode="numeric" value={npcForm.armorClass} onChange={(e) => setNpcForm((s) => ({ ...s, armorClass: e.target.value }))} />
+            <input className="ui-input" inputMode="numeric" value={npcForm.armorClass} onChange={(e) => setNpcForm((f) => ({ ...f, armorClass: clampNum(e.target.value, 10) }))} />
           </div>
+
           <div className="field">
             <label className="field-label">MOD Iniciativa</label>
-            <input className="ui-input" inputMode="numeric" value={npcForm.initMod} onChange={(e) => setNpcForm((s) => ({ ...s, initMod: e.target.value }))} />
-          </div>
-          <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <label className="field-label">Notas</label>
-            <textarea className="ui-input" rows={4} value={npcForm.notes} onChange={(e) => setNpcForm((s) => ({ ...s, notes: e.target.value }))} />
+            <input className="ui-input" inputMode="numeric" value={npcForm.initMod} onChange={(e) => setNpcForm((f) => ({ ...f, initMod: clampNum(e.target.value, 0) }))} />
           </div>
         </div>
 
-        <div className="controls-footer" style={{ marginTop: 10 }}>
-          <button className="ui-btn ui-btn-primary" onClick={saveNpc}>
-            Salvar
+        <div className="field">
+          <label className="field-label">Notas</label>
+          <textarea className="ui-input" rows={5} value={npcForm.notes} onChange={(e) => setNpcForm((f) => ({ ...f, notes: e.target.value }))} />
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+          <button className="ui-btn ui-btn-primary" onClick={saveNpc} style={{ flex: 1 }}>
+            Salvar NPC
           </button>
           <button className="ui-btn" onClick={() => setNpcModalOpen(false)}>
             Cancelar
