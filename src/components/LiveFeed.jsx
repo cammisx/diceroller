@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { onSnapshot, orderBy, query, limit } from "firebase/firestore";
+import { addDoc, onSnapshot, orderBy, query, limit, serverTimestamp } from "firebase/firestore";
 import { rollsCol } from "../lib/refs";
+import { rollDiceExpression, formatDiceResult } from "../lib/dice";
 
 /**
  * LiveFeed
@@ -41,10 +42,48 @@ export default function LiveFeed({
     });
   }, [rolls, now, ttlMinutes]);
 
+  const damageAlreadyRolledFor = useMemo(() => {
+    const set = new Set();
+    for (const r of visibleRolls) {
+      if (r?.type === "Dano" && r?.fromAttackRollId) set.add(r.fromAttackRollId);
+    }
+    return set;
+  }, [visibleRolls]);
+
+  // para esconder o botão "Rolar dano" quando o dano já foi rolado a partir daquele ataque
+  const damageByAttackId = useMemo(() => {
+    const m = new Map();
+    for (const r of visibleRolls) {
+      if (r?.type === "Dano" && r?.fromAttackRollId) m.set(r.fromAttackRollId, true);
+    }
+    return m;
+  }, [visibleRolls]);
+
   function canSeeNumbers(roll) {
     if (!roll?.isSecret) return true;
     if (isMaster) return true;
     return roll.playerId === viewerId; // autor vê a própria secreta
+  }
+
+  async function rollDamageFromAttack(attackRoll) {
+    const expr = String(attackRoll?.damageExpr || "").trim();
+    if (!expr) return;
+    const diceResult = rollDiceExpression(expr);
+    if (!diceResult) {
+      alert(`Expressão de dano inválida: "${expr}"`);
+      return;
+    }
+    const diceText = formatDiceResult(diceResult);
+    await addDoc(rollsCol(), {
+      playerId: attackRoll.playerId,
+      isSecret: !!attackRoll.isSecret,
+      createdAt: serverTimestamp(),
+      type: "Dano",
+      subtype: attackRoll.subtype || "Dano",
+      total: diceResult.total,
+      fromAttackRollId: attackRoll.id,
+      detail: `${attackRoll?.attackKind === "spell" ? "Magia" : "Arma"} • ${diceText}`,
+    });
   }
 
   return (
@@ -57,6 +96,13 @@ export default function LiveFeed({
         <ul className="livefeed-list" style={styles.feed}>
           {visibleRolls.map((r) => {
             const show = canSeeNumbers(r);
+            const canRollDamageBtn =
+              r?.type === "Ataque" &&
+              r?.playerId === viewerId &&
+              !!(r?.damageExpr || "").trim() &&
+              r?.nat20 !== true &&
+              !damageAlreadyRolledFor.has(r.id);
+
             return (
               <li key={r.id} style={styles.feedItem}>
                 <div style={styles.topRow}>
@@ -73,6 +119,36 @@ export default function LiveFeed({
                 </div>
 
                 <div style={styles.muted}>{show ? r.detail : "Rolagem secreta"}</div>
+
+                {canRollDamageBtn ? (
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      style={styles.damageBtn}
+                      onClick={async () => {
+                        const expr = String(r.damageExpr || "").trim();
+                        const diceResult = rollDiceExpression(expr);
+                        if (!diceResult) {
+                          alert(`Expressão de dano inválida: "${expr}"`);
+                          return;
+                        }
+                        const text = formatDiceResult(diceResult);
+                        await addDoc(rollsCol(), {
+                          playerId: viewerId,
+                          isSecret: !!r.isSecret,
+                          createdAt: serverTimestamp(),
+                          type: "Dano",
+                          subtype: r.subtype || "Dano",
+                          total: diceResult.total,
+                          fromAttackRollId: r.id,
+                          detail: `${text}`,
+                        });
+                      }}
+                    >
+                      Rolar dano
+                    </button>
+                  </div>
+                ) : null}
               </li>
             );
           })}
@@ -112,6 +188,15 @@ const styles = {
   },
   topRow: { display: "flex", justifyContent: "space-between", gap: 12 },
   total: { fontWeight: 800 },
+  damageBtn: {
+    marginTop: 6,
+    border: "1px solid rgba(255,255,255,0.18)",
+    background: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    padding: "8px 10px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
   secret: {
     marginLeft: 8,
     fontSize: 12,

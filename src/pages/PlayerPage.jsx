@@ -62,6 +62,18 @@ function ShieldLevel({ level }) {
   );
 }
 
+
+function buildCritExpression(expr, multiplier = 2) {
+  const clean = String(expr || "").trim().toLowerCase().replace(/\s+/g, "");
+  if (!clean) return "";
+  // Dobra apenas os dados (mantém bônus numéricos)
+  return clean.replace(/(\d*)d(\d+)/g, (_, c, sides) => {
+    const count = c ? parseInt(c, 10) : 1;
+    const next = Math.max(1, count * (Number(multiplier) || 2));
+    return `${next}d${sides}`;
+  });
+}
+
 export default function PlayerPage() {
   const { playerId } = useParams();
   const { player, loading } = usePlayer(playerId);
@@ -105,6 +117,7 @@ export default function PlayerPage() {
     name: "",
     description: "",
     dice: "",
+    critDice: "",
     ability: "str",
     bonusAdditional: 0,
     hasAttackRoll: true,
@@ -301,14 +314,38 @@ export default function PlayerPage() {
     const d20res = rollD20WithState();
     const total = d20res.d20 + mod + pb + bonusAdditional;
 
-    await logRoll({
+    // Precisamos do ID do doc pra permitir "Rolar dano" no feed e/ou auto-dano no crítico.
+    const attackDoc = await addDoc(rollsCol(), {
+      playerId,
+      isSecret: isSecretRoll,
+      createdAt: serverTimestamp(),
       type: "Ataque",
       subtype: atk.name || "Ataque",
       total,
+      nat20: d20res.d20 === 20,
+      attackId: atk.id,
+      damageExpr: atk.dice || "",
       detail: `${d20res.detail} ${mod >= 0 ? "+" : ""}${mod} +PB(${pb})${
         bonusAdditional ? ` ${bonusAdditional >= 0 ? "+" : ""}${bonusAdditional}` : ""
-      } = ${total} • ${atk.kind === "spell" ? "Magia" : "Arma"}`,
+      } = ${total} • ${atk.kind === "spell" ? "Magia" : "Arma"}${d20res.d20 === 20 ? " • CRÍTICO!" : ""}`,
     });
+
+    // 20 natural -> rola dano automaticamente junto
+    if (d20res.d20 === 20 && (atk.dice || "").trim()) {
+      const critExpr = (atk.critDice || "").trim() ? atk.critDice : buildCritExpression(atk.dice, 2);
+      const diceResult = rollDiceExpression(critExpr || "");
+      const diceText = diceResult ? formatDiceResult(diceResult) : `(dice inválido: "${critExpr || ""}")`;
+await addDoc(rollsCol(), {
+        playerId,
+        isSecret: isSecretRoll,
+        createdAt: serverTimestamp(),
+        type: "Dano",
+        subtype: atk.name || "Dano",
+        total: diceResult?.total ?? 0,
+        fromAttackRollId: attackDoc.id,
+        detail: `${atk.kind === "spell" ? "Magia" : "Arma"} • ${diceText} • (crítico)`,
+      });
+    }
   }
 
   async function rollDamage() {
@@ -365,9 +402,9 @@ export default function PlayerPage() {
     { key: "notas", label: "Notas" },
   ];
 
-  const trainedSkills = useMemo(() => {
-    return skillComputed.filter((s) => s.proficient);
-  }, [skillComputed]);
+  // NÃO usar hooks depois de returns condicionais (isso quebra no build/prod).
+  // Aqui não precisamos de memo: é barato e evita o erro "Rendered fewer hooks than expected".
+  const trainedSkills = skillComputed.filter((s) => s.proficient);
 
   const inventoryItems = Array.isArray(player.inventory) ? player.inventory : [];
   const notes = Array.isArray(player.notes) ? player.notes : [];
@@ -938,6 +975,20 @@ export default function PlayerPage() {
               </div>
 
               <div className="field">
+                <label className="field-label">Crítico (expressão)</label>
+                <input
+                  className="ui-input"
+                  value={newAction.critDice}
+                  onChange={(e) => setNewAction((a) => ({ ...a, critDice: e.target.value }))}
+                  placeholder='Ex: "4d8+3" (opcional)'
+                />
+                <div className="ui-muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  Se vazio, dobra apenas os dados automaticamente.
+                </div>
+              </div>
+
+
+              <div className="field">
                 <label className="field-label">Atributo base (para teste de ataque)</label>
                 <select className="ui-select" value={newAction.ability} onChange={(e) => setNewAction((a) => ({ ...a, ability: e.target.value }))}>
                   <option value="str">Força</option>
@@ -966,7 +1017,7 @@ export default function PlayerPage() {
                     checked={newAction.hasAttackRoll === false}
                     onChange={(e) => setNewAction((a) => ({ ...a, hasAttackRoll: !e.target.checked }))}
                   />
-                  Não possui teste de ataque (acerta automaticamente)
+                  Sem teste de ataque (acerta automaticamente)
                 </label>
               ) : null}
 
@@ -980,6 +1031,7 @@ export default function PlayerPage() {
                       description: newAction.description || "",
                       kind: newAction.type === "Magia" ? "spell" : "weapon",
                       dice: newAction.dice || "",
+                      critDice: newAction.critDice || "",
                       ability: newAction.ability || "str",
                       bonusAdditional: Number(newAction.bonusAdditional || 0),
                       hasAttackRoll: newAction.type === "Magia" ? newAction.hasAttackRoll : true,
@@ -987,7 +1039,7 @@ export default function PlayerPage() {
                     const next = [...attacksAll, entry];
                     await mergePlayer({ attacks: next });
                     setShowAddAction(false);
-                    setNewAction({ type: "Ataque", name: "", description: "", dice: "", ability: "str", bonusAdditional: 0, hasAttackRoll: true });
+                    setNewAction({ type: "Ataque", name: "", description: "", dice: "", critDice: "", ability: "str", bonusAdditional: 0, hasAttackRoll: true });
                   }}
                 >
                   Adicionar
