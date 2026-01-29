@@ -14,8 +14,6 @@ import Drawer from "../components/Drawer";
 import { rollD20, abilityModifier, rollDiceExpression, formatDiceResult } from "../lib/dice";
 import { nanoid } from "nanoid";
 import { SKILL_DESCRIPTIONS } from "../data/skillDescriptions";
-import { nanoid } from "nanoid";
-import { SKILL_DESCRIPTIONS } from "../data/skillDescriptions";
 
 const ABILITIES = [
   { key: "str", label: "Força", short: "FOR" },
