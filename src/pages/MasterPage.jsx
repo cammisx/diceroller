@@ -595,7 +595,7 @@ export default function MasterPage() {
           <input className="ui-input" value={rollerExpr} onChange={(e) => setRollerExpr(e.target.value)} placeholder="Ex: 2d20kh1+5" />
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button className="ui-btn ui-btn-primary" onClick={rollQuickExpr} style={{ flex: 1 }}>
+          <button className="ui-btn ui-btn-primary" onClick={sendMasterRoll} style={{ flex: 1 }}>
             Rolar
           </button>
           <button className="ui-btn" onClick={() => setRollerOpen(false)}>
