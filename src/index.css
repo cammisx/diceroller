@@ -400,6 +400,104 @@ option{ color:#000; }
 
 .sheet-content{ display: grid; gap: 12px; }
 
+/* ===============================
+   Sheet layout (main + side panel)
+   =============================== */
+.sheet-layout-two{
+  grid-template-columns: 1fr;
+}
+
+.sheet-main{ min-width: 0; }
+
+.sheet-side{
+  min-width: 0;
+}
+
+@media (min-width: 980px){
+  .sheet-layout-two{
+    grid-template-columns: 1fr 360px;
+    align-items: start;
+  }
+  .sheet-side{
+    position: sticky;
+    top: 12px;
+    height: calc(100dvh - 24px);
+    overflow: hidden;
+  }
+  .sheet-side .livefeed-card{
+    height: 100%;
+    overflow: hidden;
+  }
+  .sheet-side .livefeed-list{
+    overflow: auto;
+  }
+}
+
+/* ===============================
+   Rows with actions
+   =============================== */
+.row-card-actions{
+  align-items: stretch;
+}
+
+.row-link{
+  text-align: left;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.row-right{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-btn-ghost{
+  background: transparent;
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+  opacity: 0.85;
+}
+
+.section-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.icon-plus{
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border) 45%);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%);
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.currency-row{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ui-textarea{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  color: inherit;
+  outline: none;
+  resize: vertical;
+}
+
 .grid-cards{
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

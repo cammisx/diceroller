@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { onSnapshot, orderBy, query, limit } from "firebase/firestore";
 import { rollsCol } from "../lib/refs";
 
@@ -12,16 +12,34 @@ export default function LiveFeed({
   isMaster = false,
   title = "Rolagens ao vivo",
   className = "",
+  maxItems = 15,
+  ttlMinutes = 30,
 }) {
   const [rolls, setRolls] = useState([]);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    // Mostra apenas as últimas 10 rolagens no painel
-    const q = query(rollsCol(), orderBy("createdAt", "desc"), limit(10));
+    // Mostra apenas as últimas rolagens no painel (limitado no Firestore)
+    const q = query(rollsCol(), orderBy("createdAt", "desc"), limit(maxItems));
     return onSnapshot(q, (snap) => {
       setRolls(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
+  }, [maxItems]);
+
+  // Atualiza o "agora" pra aplicar TTL sem precisar de nova rolagem
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(t);
   }, []);
+
+  const visibleRolls = useMemo(() => {
+    const ttlMs = Number(ttlMinutes) * 60_000;
+    return rolls.filter((r) => {
+      const ms = r?.createdAt?.toMillis ? r.createdAt.toMillis() : null;
+      if (!ms) return true; // fallback: se não tiver timestamp ainda
+      return now - ms <= ttlMs;
+    });
+  }, [rolls, now, ttlMinutes]);
 
   function canSeeNumbers(roll) {
     if (!roll?.isSecret) return true;
@@ -33,11 +51,11 @@ export default function LiveFeed({
     <div className={`livefeed-card ${className}`} style={styles.card}>
       <h2 style={styles.h2}>{title}</h2>
 
-      {rolls.length === 0 ? (
+      {visibleRolls.length === 0 ? (
         <p style={styles.muted}>Ainda sem rolagens.</p>
       ) : (
         <ul className="livefeed-list" style={styles.feed}>
-          {rolls.map((r) => {
+          {visibleRolls.map((r) => {
             const show = canSeeNumbers(r);
             return (
               <li key={r.id} style={styles.feedItem}>

@@ -38,9 +38,23 @@ export default function MasterPage() {
 
         // dados do personagem (serão preenchidos no setup do player)
         level: 1,
+        race: "",
+        className: "",
+        background: "",
+        alignment: "",
+        hpMax: 0,
+        hpCurrent: 0,
+        xp: 0,
         abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
         skills: {},
         attacks: [],
+        currency: { bronze: 0, prata: 0, ouro: 0 },
+        inventory: [],
+        notes: [],
+
+        currency: { bp: 0, sp: 0, gp: 0 },
+        inventory: [],
+        notes: [],
 
         // preferências do rolador
         preferences: {

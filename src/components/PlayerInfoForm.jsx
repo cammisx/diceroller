@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { setDoc, serverTimestamp } from "firebase/firestore";
 import { playerRef } from "../lib/refs";
-import { nanoid } from "nanoid";
 import ThemePicker from "./ThemePicker";
 
 
@@ -40,7 +39,6 @@ const SKILLS = [
 
 export default function PlayerInfoForm({ playerId, player, onDone }) {
   const [level, setLevel] = useState(player.level || 1);
-  const [attacks, setAttacks] = useState(player.attacks || []);
   const [theme, setTheme] = useState(player.preferences?.theme || "Neon Tokyo");
 
   const [abilities, setAbilities] = useState(
@@ -69,34 +67,6 @@ function toggleProficient(key) {
 
 
 
-function addAttack() {
-  setAttacks([
-    ...attacks,
-{
-  id: nanoid(),
-  name: "",
-  kind: "weapon",
-  ability: "str",
-  bonusAdditional: 0,
-  dice: "1d6",
-  hasAttackRoll: true,
-},
-
-  ]);
-}
-
-function updateAttack(id, field, value) {
-  setAttacks(
-    attacks.map((a) =>
-      a.id === id ? { ...a, [field]: value } : a
-    )
-  );
-}
-
-function removeAttack(id) {
-  setAttacks(attacks.filter((a) => a.id !== id));
-}
-
   function updateAbility(key, value) {
     setAbilities({ ...abilities, [key]: Number(value) });
   }
@@ -108,7 +78,6 @@ function removeAttack(id) {
     level,
     abilities,
     skills,
-    attacks,
     preferences: {
       ...(player.preferences || {}),
       theme,
@@ -208,107 +177,6 @@ function removeAttack(id) {
     );
   })}
 </div>
-
-
-<h3 style={{ marginTop: 16 }}>Ataques</h3>
-
-{attacks.length === 0 && (
-  <p style={{ opacity: 0.7, fontSize: 13 }}>
-    Nenhum ataque cadastrado.
-  </p>
-)}
-
-<div style={{ display: "grid", gap: 12 }}>
-  {attacks.map((atk) => (
-   <div
-  key={atk.id}
-  style={{
-    border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: 12,
-    padding: 12,
-    display: "grid",
-    gap: 8,
-  }}
->
-  <input
-    placeholder="Nome (ex: Rapier / Fire Bolt)"
-    value={atk.name}
-    onChange={(e) => updateAttack(atk.id, "name", e.target.value)}
-     className="ui-input"
-  />
-
-  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-    <select
-      value={atk.kind || "weapon"}
-      onChange={(e) => {
-        const kind = e.target.value;
-        updateAttack(atk.id, "kind", kind);
-        if (kind === "weapon") updateAttack(atk.id, "hasAttackRoll", true);
-      }}
-      style={{ ...styles.input, flex: 1, minWidth: 140 }}
-    >
-      <option value="weapon">Arma</option>
-      <option value="spell">Magia</option>
-    </select>
-
-    <select
-      value={atk.ability || "str"}
-      onChange={(e) => updateAttack(atk.id, "ability", e.target.value)}
-      style={{ ...styles.input, flex: 1, minWidth: 160 }}
-    >
-      <option value="str">Força</option>
-      <option value="dex">Destreza</option>
-      <option value="con">Constituição</option>
-      <option value="int">Inteligência</option>
-      <option value="wis">Sabedoria</option>
-      <option value="cha">Carisma</option>
-    </select>
-
-    <input
-      type="number"
-      placeholder="Bônus"
-      value={Number(atk.bonusAdditional || 0)}
-      onChange={(e) => updateAttack(atk.id, "bonusAdditional", Number(e.target.value))}
-      style={{ ...styles.input, width: 90, minWidth: 90 }}
-      title="Bônus adicionais"
-    />
-  
-  {atk.kind === "spell" && (
-    <label style={{ display: "flex", alignItems: "center", gap: 10, opacity: 0.9 }}>
-      <input
-        type="checkbox"
-        checked={atk.hasAttackRoll === false}
-        onChange={(e) => updateAttack(atk.id, "hasAttackRoll", !e.target.checked)}
-      />
-      Não possui teste de ataque (magia acerta automaticamente)
-    </label>
-  )}
-</div>
-
-  <input
-    placeholder="Rolagem dos dados (ex: 1d8+4 / 2d6+3)"
-    value={atk.dice || ""}
-    onChange={(e) => updateAttack(atk.id, "dice", e.target.value)}
-    className="ui-input"
-  />
-
-  <button
-    onClick={() => removeAttack(atk.id)}
-    style={{
-      ...styles.button,
-      background: "rgba(255,80,80,0.15)",
-      borderColor: "rgba(255,80,80,0.35)",
-    }}
-  >
-    Remover ataque
-  </button>
-</div>
-  ))}
-</div>
-
-<button onClick={addAttack} style={{ ...styles.button, marginTop: 12 }}>
-  + Adicionar ataque
-</button>
 
 
     <button onClick={save} className="ui-btn">
