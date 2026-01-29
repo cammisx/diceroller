@@ -33,6 +33,67 @@ function clampNum(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function normalizeConditions(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean).map((s) => String(s).trim()).filter(Boolean);
+  return String(value)
+    .split(/[;,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function ConditionsTags({ value, onChange, placeholder = "Adicionar..." }) {
+  const [draft, setDraft] = useState("");
+  const tags = normalizeConditions(value);
+
+  function commitTag(raw) {
+    const t = String(raw || "").trim();
+    if (!t) return;
+    if (tags.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+    onChange([...tags, t]);
+    setDraft("");
+  }
+
+  function removeAt(i) {
+    const next = tags.slice();
+    next.splice(i, 1);
+    onChange(next);
+  }
+
+  return (
+    <div className="cond-tags">
+      <div className="cond-chips">
+        {tags.map((t, i) => (
+          <span key={t + i} className="cond-chip">
+            {t}
+            <button type="button" className="cond-chip-x" onClick={() => removeAt(i)} aria-label="Remover condição">
+              ✕
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <input
+        className="ui-input cond-input"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={placeholder}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === "," || e.key === ";") {
+            e.preventDefault();
+            commitTag(draft);
+          }
+          if (e.key === "Backspace" && !draft && tags.length) {
+            e.preventDefault();
+            removeAt(tags.length - 1);
+          }
+        }}
+        onBlur={() => commitTag(draft)}
+      />
+    </div>
+  );
+}
+
 export default function MasterPage() {
   const [activeTab, setActiveTab] = useState("jogadores");
 
@@ -58,7 +119,9 @@ export default function MasterPage() {
   const [combatState, setCombatState] = useState({}); // map: key -> { initiative, conditions }
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rollerOpen, setRollerOpen] = useState(false);
-  const [rollerExpr, setRollerExpr] = useState("1d20");
+  const [rollerExpr, setRollerExpr] = useState("");
+  const [rollerSecret, setRollerSecret] = useState(false);
+  const [lastSecretResult, setLastSecretResult] = useState("");
 
   const [tableData, setTableData] = useState(null);
 
@@ -242,7 +305,7 @@ export default function MasterPage() {
     const merged = [...playerRows, ...npcRows].map((r) => ({
       ...r,
       initiative: clampNum(combatState?.[r.key]?.initiative, 0),
-      conditions: combatState?.[r.key]?.conditions || "",
+      conditions: combatState?.[r.key]?.conditions || [],
     }));
 
     merged.sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
@@ -263,22 +326,35 @@ export default function MasterPage() {
   }
 
   async function sendMasterRoll() {
-    const expr = (rollerExpr || "").trim();
-    if (!expr) return;
+  const expr = (rollerExpr || "").trim() || "1d20";
 
-    const result = rollDiceExpression(expr);
-    await addDoc(rollsCol(), {
-      createdAt: serverTimestamp(),
-      playerId: "mestre",
-      playerName: "Mestre",
-      kind: "Livre",
-      label: expr,
-      expr,
-      result,
-      isSecret: false,
-    });
-    setRollerExpr("");
+  const result = rollDiceExpression(expr);
+  if (!result) {
+    alert(`Expressão inválida: "${expr}"`);
+    return;
   }
+
+  // Secreta do mestre: não vai pro feed; fica só aqui no drawer
+  if (rollerSecret) {
+    const { formatDiceResult } = await import("../lib/dice");
+    setLastSecretResult(formatDiceResult(result));
+    return;
+  }
+
+  const { formatDiceResult } = await import("../lib/dice");
+  await addDoc(rollsCol(), {
+    createdAt: serverTimestamp(),
+    playerId: "mestre",
+    isSecret: false,
+    type: "Livre",
+    subtype: "Livre",
+    total: result.total,
+    detail: formatDiceResult(result),
+  });
+
+  setRollerExpr("");
+  setLastSecretResult("");
+}
 
   return (
     <div className="player-page">
@@ -468,48 +544,18 @@ export default function MasterPage() {
                         <tr key={r.key}>
                           <td style={{ fontWeight: 900 }}>{r.name}</td>
                           <td>{r.hpMax}</td>
-                          <td>
-                            <input
-                              className="ui-input"
-                              style={{ width: 90 }}
-                              inputMode="numeric"
-                              value={r.hpCurrent}
-                              onChange={async (e) => {
-                                const v = clampNum(e.target.value, 0);
-                                if (r.kind === "player") {
-                                  await setDoc(playerRef(r.id), { hpCurrent: v, updatedAt: serverTimestamp() }, { merge: true });
-                                } else {
-                                  await setDoc(npcRef(r.id), { hpCurrent: v, updatedAt: serverTimestamp() }, { merge: true });
-                                }
-                              }}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className="ui-input"
-                              style={{ width: 90 }}
-                              inputMode="numeric"
-                              value={r.initiative || ""}
-                              onChange={async (e) => {
-                                const v = clampNum(e.target.value, 0);
-                                const next = { ...(combatState || {}) };
-                                next[r.key] = { ...(next[r.key] || {}), initiative: v };
-                                await updateCombatState(next);
-                              }}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className="ui-input"
-                              value={r.conditions}
-                              onChange={async (e) => {
-                                const next = { ...(combatState || {}) };
-                                next[r.key] = { ...(next[r.key] || {}), conditions: e.target.value };
-                                await updateCombatState(next);
-                              }}
-                              placeholder="Ex: Envenenado"
-                            />
-                          </td>
+                          
+<td>
+  <ConditionsTags
+    value={r.conditions}
+    placeholder="Adicionar condição…"
+    onChange={async (nextConditions) => {
+      const next = { ...(combatState || {}) };
+      next[r.key] = { ...(next[r.key] || {}), conditions: nextConditions };
+      await updateCombatState(next);
+    }}
+  />
+</td>
                           <td style={{ width: 56, textAlign: "right" }}>
                             {r.kind === "npc" ? (
                               <button className="ui-btn ui-btn-danger" onClick={() => excludeNpcFromCombat(r.id)} title="Remover do combate">
@@ -588,20 +634,49 @@ export default function MasterPage() {
       </Modal>
 
       {/* Roller Drawer */}
-      <Drawer open={rollerOpen} onClose={() => setRollerOpen(false)} title="Rolagem rápida (Mestre)">
-        <div className="field">
-          <label className="field-label">Expressão</label>
-          <input className="ui-input" value={rollerExpr} onChange={(e) => setRollerExpr(e.target.value)} placeholder="Ex: 2d20kh1+5" />
+      
+{/* Roller Drawer */}
+<Drawer open={rollerOpen} onClose={() => setRollerOpen(false)} title="Rolador (Mestre)">
+  <div className="ui-card" style={{ boxShadow: "none" }}>
+    <div className="toggle-row" style={{ marginBottom: 10 }}>
+      <button
+        type="button"
+        className={"toggle-btn" + (rollerSecret ? " active" : "")}
+        onClick={() => setRollerSecret((v) => !v)}
+      >
+        Secreta
+      </button>
+    </div>
+
+    <div className="field">
+      <label className="field-label">Expressão</label>
+      <input
+        className="ui-input"
+        value={rollerExpr}
+        onChange={(e) => setRollerExpr(e.target.value)}
+        placeholder="(vazio = 1d20) • Ex: 2d20kh1+5"
+      />
+    </div>
+
+    {rollerSecret && lastSecretResult ? (
+      <div className="ui-card" style={{ marginTop: 10 }}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Resultado (secreto)</div>
+        <div className="ui-muted" style={{ whiteSpace: "pre-wrap" }}>
+          {lastSecretResult}
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button className="ui-btn ui-btn-primary" onClick={sendMasterRoll} style={{ flex: 1 }}>
-            Rolar
-          </button>
-          <button className="ui-btn" onClick={() => setRollerOpen(false)}>
-            Fechar
-          </button>
-        </div>
-      </Drawer>
+      </div>
+    ) : null}
+
+    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <button className="ui-btn ui-btn-primary" onClick={sendMasterRoll} style={{ flex: 1 }}>
+        Rolar
+      </button>
+      <button className="ui-btn" onClick={() => setRollerOpen(false)}>
+        Fechar
+      </button>
+    </div>
+  </div>
+</Drawer>
 
       {/* Settings */}
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Configurações do Mestre">

@@ -81,7 +81,7 @@ a:hover{ text-decoration: underline; }
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-option{ color:#000; }
+option{ color: var(--text); background: var(--surface); }
 
 /* Buttons */
 .ui-btn{
@@ -866,3 +866,12 @@ option{ color:#000; }
     width: 100%;
   }
 }
+
+
+/* Conditions (Mestre / Combate) */
+.cond-tags{ display:flex; flex-direction:column; gap:8px; }
+.cond-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.cond-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: var(--text); font-weight:800; font-size:12px; }
+.cond-chip-x{ border:none; background:transparent; color: var(--text); opacity:0.85; cursor:pointer; font-weight:900; }
+.cond-chip-x:hover{ opacity:1; }
+.cond-input{ width:100%; min-width:120px; }
