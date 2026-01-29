@@ -620,6 +620,18 @@ export const THEMES = {
     accent: "#2a2344",
     accent2: "#211526",
   },
+
+
+"Pride": { bg:"#2a1d3a", surface:"#2f2348", border:"#ff6ad5", text:"#f7f7ff", muted:"#c7c7d6", accent:"#ff4d4d", accent2:"#4dff88" },
+"Trans": { bg:"#1b2a3a", surface:"#21324a", border:"#7dd3ff", text:"#ffffff", muted:"#c7d6e6", accent:"#ff7dbb", accent2:"#7dd3ff" },
+"Pan": { bg:"#2a1a2a", surface:"#34203a", border:"#ff4d8d", text:"#fff6fb", muted:"#e6c7d6", accent:"#ffd84d", accent2:"#4dd2ff" },
+"Bi": { bg:"#241a2a", surface:"#2f2140", border:"#ff4da6", text:"#fff6ff", muted:"#d6c7e6", accent:"#9b4dff", accent2:"#4d7dff" },
+"Lesbian": { bg:"#2a171a", surface:"#3a1f23", border:"#ff5a3d", text:"#fff7f5", muted:"#e6c7c2", accent:"#ff8a3d", accent2:"#ff4d8d" },
+"Nonbinary": { bg:"#201c2a", surface:"#2a2340", border:"#ffd84d", text:"#fffdf5", muted:"#d9d1c7", accent:"#9b4dff", accent2:"#2b2b2b" },
+"Intersex": { bg:"#2a2414", surface:"#3a321b", border:"#ffd84d", text:"#fff8d6", muted:"#e6d9a8", accent:"#7a3dff", accent2:"#ffd84d" },
+"Aromantic": { bg:"#152416", surface:"#1b2f1d", border:"#4dff88", text:"#f5fff7", muted:"#c7e6cf", accent:"#4dff88", accent2:"#2a2a2a" },
+"Genderqueer": { bg:"#1e1830", surface:"#2a2140", border:"#b07dff", text:"#ffffff", muted:"#d6c7e6", accent:"#4dff88", accent2:"#ffffff" },
+
 };
 
 export const THEME_NAMES = Object.keys(THEMES);

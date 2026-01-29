@@ -15,6 +15,23 @@ import { rollD20, abilityModifier, rollDiceExpression, formatDiceResult } from "
 import { nanoid } from "nanoid";
 import { SKILL_DESCRIPTIONS } from "../data/skillDescriptions";
 
+
+const RACES_5E = [
+  "Aasimar","Anão","Autognomo","Astral Elf","Centauro","Changeling","Dhampir","Draconato","Elfo","Fada","Firbolg","Genasi (Ar)","Genasi (Terra)","Genasi (Fogo)","Genasi (Água)",
+  "Giff","Githyanki","Githzerai","Gnomo","Goblin","Goliath","Hadozee","Halfling","Harengon","Hexblood","Hobgoblin","Humano","Kalashtar","Kenku","Kobold","Leonino","Lizardfolk",
+  "Meio-elfo","Meio-orc","Minotauro","Orc","Owlin","Plasmoid","Reborn","Satyr","Shifter","Simic Hybrid","Tabaxi","Thri-kreen","Tortle","Triton","Vedalken","Warforged","Yuan-ti","Outro"
+];
+
+const CLASSES_5E = [
+  "Artífice","Bárbaro","Bardo","Bruxo","Clérigo","Druida","Feiticeiro","Guerreiro","Ladino","Mago","Monge","Paladino","Patrulheiro"
+];
+
+const ALIGNMENTS_5E = [
+  "Leal e Bom","Neutro e Bom","Caótico e Bom",
+  "Leal e Neutro","Neutro","Caótico e Neutro",
+  "Leal e Mau","Neutro e Mau","Caótico e Mau"
+];
+
 const ABILITIES = [
   { key: "str", label: "Força", short: "FOR" },
   { key: "dex", label: "Destreza", short: "DES" },
@@ -538,22 +555,30 @@ export default function PlayerPage() {
                 <div className="form-grid" style={{ marginTop: 12 }}>
                   <div className="field">
                     <label className="field-label">Raça</label>
-                    <input
+                    <select
                       className="ui-input"
                       value={statsForm.race}
                       onChange={(e) => setStatsForm((s) => ({ ...s, race: e.target.value }))}
-                      placeholder="Ex: Meio-elfa"
-                    />
+                    >
+                      <option value="">Selecione…</option>
+                      {RACES_5E.map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="field">
                     <label className="field-label">Classe</label>
-                    <input
+                    <select
                       className="ui-input"
                       value={statsForm.className}
                       onChange={(e) => setStatsForm((s) => ({ ...s, className: e.target.value }))}
-                      placeholder="Ex: Barda"
-                    />
+                    >
+                      <option value="">Selecione…</option>
+                      {CLASSES_5E.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="field">
@@ -567,13 +592,17 @@ export default function PlayerPage() {
                   </div>
 
                   <div className="field">
-                    <label className="field-label">Tendência</label>
-                    <input
+                    <label className="field-label">Alinhamento</label>
+                    <select
                       className="ui-input"
                       value={statsForm.alignment}
                       onChange={(e) => setStatsForm((s) => ({ ...s, alignment: e.target.value }))}
-                      placeholder="Ex: Caótico Bom"
-                    />
+                    >
+                      <option value="">Selecione…</option>
+                      {ALIGNMENTS_5E.map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="field">
