@@ -401,26 +401,6 @@ async function sendMasterRoll() {
   setLastSecretResult("");
 }
 
-  // Secreta do mestre: não vai pro feed; fica só aqui no drawer
-  if (rollerSecret) {
-    setLastSecretResult(formatDiceResult(result));
-    return;
-  }
-
-  await addDoc(rollsCol(), {
-    createdAt: serverTimestamp(),
-    playerId: "mestre",
-    isSecret: false,
-    type: "Livre",
-    subtype: "Livre",
-    total: result.total,
-    detail: formatDiceResult(result),
-  });
-
-  setRollerExpr("");
-  setLastSecretResult("");
-}
-
   return (
     <div className="player-page">
       <div className="sheet-layout sheet-layout-two">
