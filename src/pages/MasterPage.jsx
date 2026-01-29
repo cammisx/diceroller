@@ -423,33 +423,32 @@ export default function MasterPage() {
 
             {activeTab === "combate" && (
               <div className="ui-card">
+                {/* Header: igual ao player (sem título duplicado) */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <h3 style={{ marginTop: 0, marginBottom: 0 }}>Combate</h3>
+                  <select
+                    className="ui-input"
+                    style={{ minWidth: 210, flex: "1 1 210px" }}
+                    value={combatScene}
+                    onChange={(e) => setCombatScene(e.target.value)}
+                    title="Filtrar NPCs por cena"
+                  >
+                    <option value="">Cena (nenhuma)</option>
+                    {sceneOptions.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
 
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    <select
-                      className="ui-input"
-                      style={{ minWidth: 210 }}
-                      value={combatScene}
-                      onChange={(e) => setCombatScene(e.target.value)}
-                      title="Filtrar NPCs por cena"
-                    >
-                      <option value="">Cena (nenhuma)</option>
-                      {sceneOptions.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                  <button className="ui-btn" onClick={() => setCombatAddOpen(true)} title="Adicionar NPC ao combate">
+                    + NPC
+                  </button>
+                </div>
 
-                    <button className="ui-btn" onClick={() => setCombatAddOpen(true)} title="Adicionar NPC ao combate">
-                      + NPC
-                    </button>
-
-                    <button className="ui-btn ui-btn-primary" onClick={rollNpcInitiative} title="Rolar iniciativa para NPCs no combate">
-                      Rolar iniciativa
-                    </button>
-                  </div>
+                <div style={{ marginTop: 10 }}>
+                  <button className="ui-btn ui-btn-primary" onClick={rollNpcInitiative} title="Rolar iniciativa para NPCs no combate" style={{ width: "100%" }}>
+                    Rolar iniciativa
+                  </button>
                 </div>
 
                 <div className="table-wrap" style={{ marginTop: 12 }}>
@@ -545,7 +544,7 @@ export default function MasterPage() {
       </div>
 
       {/* Floating Roller */}
-      <button className="fab" onClick={() => setRollerOpen(true)} title="Abrir rolador">
+      <button className="fab-roll" type="button" onClick={() => setRollerOpen(true)} aria-label="Abrir rolador">
         🎲
       </button>
 
