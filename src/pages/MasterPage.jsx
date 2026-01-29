@@ -402,9 +402,9 @@ async function sendMasterRoll() {
 }
 
   return (
-    <div className="player-page">
+    <div className="player-page" style={{ color: "var(--text, var(--ink, #f4f4f5))" }}>
       <div className="sheet-layout sheet-layout-two">
-        <div className="sheet-main">
+        <div className="sheet-main" style={{ flex: 1.35, minWidth: 520 }}>
           <header className="sheet-header ui-card">
             <div className="sheet-header-top">
               <div className="player-name">Mestre</div>
@@ -548,7 +548,7 @@ async function sendMasterRoll() {
                 <div className="combat-header">
                   <select
                     className="ui-input"
-                    style={{ minWidth: 210, flex: "1 1 210px" }}
+                    style={{ minWidth: 210, flex: "1 1 210px", color: "inherit" }}
                     value={combatScene}
                     onChange={(e) => setCombatScene(e.target.value)}
                     title="Filtrar NPCs por cena"
@@ -580,8 +580,7 @@ async function sendMasterRoll() {
                         <th>HP Máx</th>
                         <th>HP Atual</th>
                         <th>Iniciativa</th>
-                        <th>Condições</th>
-                        <th></th>
+                        <th style={{ minWidth: 260 }}>Condições</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -593,6 +592,7 @@ async function sendMasterRoll() {
 <td>
   <input
     className="ui-input"
+    style={{ color: "inherit" }}
     inputMode="numeric"
     value={String(r.hpCurrent ?? "")}
     onChange={async (e) => {
@@ -608,6 +608,7 @@ async function sendMasterRoll() {
 <td>
   <input
     className="ui-input"
+    style={{ color: "inherit" }}
     inputMode="numeric"
     value={r.initiative ? String(r.initiative) : ""}
     onChange={async (e) => {
@@ -618,34 +619,41 @@ async function sendMasterRoll() {
     }}
   />
 </td>
-<td>
-  <ConditionsTags
-    value={r.conditions}
-    placeholder="Adicionar condição…"
-    onChange={async (nextConditions) => {
-      const next = { ...(combatState || {}) };
-      next[r.key] = { ...(next[r.key] || {}), conditions: nextConditions };
-      await updateCombatState(next);
-    }}
-  />
+<td style={{ minWidth: 260 }}>
+  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <ConditionsTags
+        value={r.conditions}
+        placeholder="Adicionar condição…"
+        onChange={async (nextConditions) => {
+          const next = { ...(combatState || {}) };
+          next[r.key] = { ...(next[r.key] || {}), conditions: nextConditions };
+          await updateCombatState(next);
+        }}
+      />
+    </div>
+    <div style={{ width: 56, textAlign: "right", flex: "0 0 56px" }}>
+      {r.kind === "npc" ? (
+        <button
+          className="ui-btn ui-btn-danger"
+          onClick={() => excludeNpcFromCombat(r.id)}
+          title="Remover do combate"
+        >
+          ✕
+        </button>
+      ) : (
+        <span className="muted" style={{ fontSize: 12 }}>
+          —
+        </span>
+      )}
+    </div>
+  </div>
 </td>
-
-                          <td style={{ width: 56, textAlign: "right" }}>
-                            {r.kind === "npc" ? (
-                              <button className="ui-btn ui-btn-danger" onClick={() => excludeNpcFromCombat(r.id)} title="Remover do combate">
-                                ✕
-                              </button>
-                            ) : (
-                              <span className="muted" style={{ fontSize: 12 }}>
-                                —
-                              </span>
-                            )}
-                          </td>
                         </tr>
                       ))}
                       {!combatRows.length && (
                         <tr>
-                          <td colSpan={6} className="muted">
+                          <td colSpan={5} className="muted">
                             Nenhum participante.
                           </td>
                         </tr>
@@ -658,7 +666,7 @@ async function sendMasterRoll() {
           </main>
         </div>
 
-        <aside className="sheet-side">
+        <aside className="sheet-side" style={{ flex: 1, minWidth: 320 }}>
           <LiveFeed viewerId="mestre" isMaster title="Rolagens (mesa)" maxItems={15} ttlMinutes={30} />
         </aside>
       </div>
@@ -672,7 +680,7 @@ async function sendMasterRoll() {
       <Modal open={combatAddOpen} onClose={() => setCombatAddOpen(false)} title="Adicionar NPC ao combate">
         <div className="field">
           <label className="field-label">Escolher NPC</label>
-          <select className="ui-input" value={npcToAddId} onChange={(e) => setNpcToAddId(e.target.value)}>
+          <select className="ui-input" style={{ color: "inherit" }} value={npcToAddId} onChange={(e) => setNpcToAddId(e.target.value)}>
             <option value="">Selecione...</option>
             {npcs.map((n) => (
               <option key={n.id} value={n.id}>
