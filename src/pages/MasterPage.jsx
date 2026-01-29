@@ -383,7 +383,7 @@ export default function MasterPage() {
 
             {activeTab === "npcs" && (
               <div className="ui-card">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div className="combat-header">
                   <h3 style={{ marginTop: 0, marginBottom: 0 }}>NPCs</h3>
                   <button className="ui-btn ui-btn-primary" onClick={() => setNpcModalOpen(true)} title="Adicionar NPC">
                     + Adicionar NPC
@@ -424,7 +424,7 @@ export default function MasterPage() {
             {activeTab === "combate" && (
               <div className="ui-card">
                 {/* Header: igual ao player (sem título duplicado) */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div className="combat-header">
                   <select
                     className="ui-input"
                     style={{ minWidth: 210, flex: "1 1 210px" }}
@@ -440,7 +440,7 @@ export default function MasterPage() {
                     ))}
                   </select>
 
-                  <button className="ui-btn" onClick={() => setCombatAddOpen(true)} title="Adicionar NPC ao combate">
+                  <button className="ui-btn combat-add-btn" onClick={() => setCombatAddOpen(true)} title="Adicionar NPC ao combate">
                     + NPC
                   </button>
                 </div>
@@ -451,8 +451,8 @@ export default function MasterPage() {
                   </button>
                 </div>
 
-                <div className="table-wrap" style={{ marginTop: 12 }}>
-                  <table className="ui-table">
+                <div className="table-wrap combat-table-wrap">
+                  <table className="ui-table combat-table">
                     <thead>
                       <tr>
                         <th>Nome</th>

@@ -808,3 +808,61 @@ option{ color:#000; }
   backdrop-filter: blur(6px);
 }
 
+
+
+/* Combat layout */
+.combat-header{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.combat-scene-select{
+  width: 100%;
+  min-width: 0;
+}
+
+.combat-add-btn{
+  white-space: nowrap;
+}
+
+.combat-table-wrap{
+  margin-top: 12px;
+}
+
+.combat-table{
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.combat-table th,
+.combat-table td{
+  padding: 10px 12px;
+}
+
+.combat-table th:nth-child(2),
+.combat-table td:nth-child(2){ width: 72px; }
+
+.combat-table th:nth-child(3),
+.combat-table td:nth-child(3){ width: 132px; }
+
+.combat-table th:nth-child(4),
+.combat-table td:nth-child(4){ width: 132px; }
+
+.combat-table th:nth-child(6),
+.combat-table td:nth-child(6){ width: 62px; }
+
+.combat-table td .ui-input{
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 640px){
+  .combat-header{
+    grid-template-columns: 1fr;
+  }
+  .combat-add-btn{
+    width: 100%;
+  }
+}
