@@ -875,3 +875,13 @@ option{ color: var(--text); background: var(--surface); }
 .cond-chip-x{ border:none; background:transparent; color: var(--text); opacity:0.85; cursor:pointer; font-weight:900; }
 .cond-chip-x:hover{ opacity:1; }
 .cond-input{ width:100%; min-width:120px; }
+/* inputs e selects SEMPRE seguem o tema */
+input, select, textarea, button {
+  color: inherit;
+}
+
+/* placeholder também */
+input::placeholder, textarea::placeholder {
+  color: inherit;
+  opacity: 0.6;
+}

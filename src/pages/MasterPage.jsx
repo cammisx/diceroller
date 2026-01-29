@@ -404,7 +404,7 @@ async function sendMasterRoll() {
   return (
     <div className="player-page" style={{ color: "var(--text, var(--ink, #f4f4f5))" }}>
       <div className="sheet-layout sheet-layout-two">
-        <div className="sheet-main" style={{ flex: 1.35, minWidth: 520 }}>
+        <div className="sheet-main" style={{ flex: 1.9, minWidth: 640 }}>
           <header className="sheet-header ui-card">
             <div className="sheet-header-top">
               <div className="player-name">Mestre</div>
@@ -580,7 +580,7 @@ async function sendMasterRoll() {
                         <th>HP Máx</th>
                         <th>HP Atual</th>
                         <th>Iniciativa</th>
-                        <th style={{ minWidth: 260 }}>Condições</th>
+                        <th style={{ minWidth: 300, whiteSpace: "nowrap" }}>Condições</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -666,7 +666,7 @@ async function sendMasterRoll() {
           </main>
         </div>
 
-        <aside className="sheet-side" style={{ flex: 1, minWidth: 320 }}>
+        <aside className="sheet-side" style={{ flex: 0.85, minWidth: 320 }}>
           <LiveFeed viewerId="mestre" isMaster title="Rolagens (mesa)" maxItems={15} ttlMinutes={30} />
         </aside>
       </div>
